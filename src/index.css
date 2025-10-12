@@ -13,6 +13,24 @@
   --color-cotton-800: #D3C6AB;
   --color-cotton-900: #CCBD9E;
   --color-cotton-950: #C8B897;
+  /* Sky Color Palette */
+  --color-sky-50: #F0F9FF;
+  --color-sky-100: #E0F2FE;
+  --color-sky-200: #BAE6FD;
+  --color-sky-300: #7DD3FC;
+  --color-sky-400: #38BDF8;
+  --color-sky-500: #0EA5E9;
+  --color-sky-600: #0284C7;
+  --color-sky-700: #0369A1;
+  --color-sky-750: #14599D;
+  --color-sky-800: #075985;
+  --color-sky-900: #0C4A6E;
+  --color-sky-910: #0C406C;
+  --color-sky-925: #0E365A;
+  --color-sky-950: #082F49;
+  --color-sky-975: #071C2E;
+  /* Font Families */
+  --font-comfortaa: 'Comfortaa', sans-serif;
 }
 
 /* Custom Drop Shadow Utilities for Images */
@@ -36,6 +54,20 @@
   .drop-shadow-item-xl {
     filter: drop-shadow(8px 8px 30px rgba(14, 54, 90, 0.24)) drop-shadow(3px 3px 8px rgba(7, 28, 46, 0.24));
   }
+  .drop-shadow-ring-active {
+    filter: drop-shadow(0 0 12px #0E7490);
+  }
+  .box-shadow-piece-dragging {
+    box-shadow: 0 14px 8px 0 rgba(2, 6, 23, 0.05), 0 6px 6px 0 rgba(2, 6, 23, 0.09), 0 2px 3px 0 rgba(2, 6, 23, 0.10);
+  }
+}
+
+:root {
+  --bg-primary: radial-gradient(circle at center, var(--color-sky-950) 0%, var(--color-sky-975) 40%, theme(colors.slate.950) 60%);
+  
+  --bg-tray: linear-gradient(180deg, var(--color-sky-950) 0%, theme(colors.slate.900) 100%);
+
+
 }
 
 body {

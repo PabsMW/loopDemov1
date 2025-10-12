@@ -1,44 +1,28 @@
 import { motion } from 'framer-motion';
-import { useEffect, useRef } from 'react';
 
 const TraySpace = ({ 
   index,
   piece = null,
   onClick,
-  setPosition,
   isEmpty = false,
-  className = ''
+  className = '',
+  style = {}
 }) => {
-  const ref = useRef(null);
-  
-  // Update position tracking for reordering
-  useEffect(() => {
-    if (ref.current && setPosition) {
-      const rect = ref.current.getBoundingClientRect();
-      setPosition(index, {
-        left: rect.left,
-        width: rect.width,
-      });
-    }
-  });
-  
   return (
     <motion.div
-      ref={ref}
       onClick={onClick}
       className={`tray-space relative flex justify-center items-center w-[50px] h-[50px] rounded-full ${!isEmpty ? 'cursor-pointer' : ''} ${className}`}
-      whileHover={!isEmpty ? { scale: 1.05, rotate: 3 } : {}}
-      whileTap={!isEmpty ? { scale: 0.95 } : {}}
+      style={style}
+      whileHover={!isEmpty ? { scale: 1, rotate: 3 } : {}}
+      whileTap={!isEmpty ? { scale: 1 } : {}}
       transition={{ duration: 0.2 }}
     >
-      {/* Empty state indicator - shows when no piece */}
-      {!piece && (
-        <div className='absolute h-[14px] w-[14px] bg-cyan-900 rounded-full'/>
-      )}
+      {/* Permanent dot indicator - always visible, behind the piece */}
+      <div className='absolute h-[14px] w-[14px] bg-cyan-900 rounded-full z-0'/>
       
-      {/* GamePiece - shows when piece exists */}
+      {/* GamePiece - shows when piece exists, above the dot */}
       {piece && (
-        <div className="flex items-center justify-center">
+        <div className="flex items-center justify-center z-10 relative">
           {piece}
         </div>
       )}

@@ -1,33 +1,42 @@
 import { useState, useEffect, useRef } from 'react';
-import { motion, Reorder } from 'framer-motion';
+import { motion } from 'framer-motion';
 import GameBoard from '../molecules/GameBoard';
 import TryIndicator from '../molecules/TryIndicator';
-import TrayItem from '../molecules/TrayItem';
+import TraySpace from '../atoms/TraySpace';
 import GamePiece from '../atoms/GamePiece';
 import Button from '../atoms/Button';
-import { arrayMove, findDragIndex } from '../../utils/arrayMove';
+import PieceModal from '../molecules/PieceModal';
 
 const GameContainer = () => {
-  // Game data
-  const correctOrder = [
-    'popcorn', 'corn', 'ear', 'tunning-fork', 'piano', 'key',
-    'cage', 'bird', 'worm', 'book', 'script', 'movie'
+  // Game data - single source of truth
+  const gameData = [
+    { id: 'popcorn', image: '/images/items-1/popcorn.webp', isStarter: true },
+    { id: 'corn', image: '/images/items-1/corn.webp' },
+    { id: 'ear', image: '/images/items-1/ear.webp' },
+    { id: 'tunning-fork', image: '/images/items-1/tunning-fork.webp' },
+    { id: 'piano', image: '/images/items-1/piano.webp' },
+    { id: 'key', image: '/images/items-1/key.webp' },
+    { id: 'cage', image: '/images/items-1/cage.webp' },
+    { id: 'bird', image: '/images/items-1/bird.webp' },
+    { id: 'worm', image: '/images/items-1/worm.webp' },
+    { id: 'book', image: '/images/items-1/book.webp' },
+    { id: 'script', image: '/images/items-1/script.webp' },
+    { id: 'movie', image: '/images/items-1/movie.webp' }
   ];
 
-  const allPieces = {
-    'popcorn': '/images/items-1/popcorn.webp',
-    'corn': '/images/items-1/corn.webp',
-    'ear': '/images/items-1/ear.webp',
-    'tunning-fork': '/images/items-1/tunning-fork.webp',
-    'piano': '/images/items-1/piano.webp',
-    'key': '/images/items-1/key.webp',
-    'cage': '/images/items-1/cage.webp',
-    'bird': '/images/items-1/bird.webp',
-    'worm': '/images/items-1/worm.webp',
-    'book': '/images/items-1/book.webp',
-    'script': '/images/items-1/script.webp',
-    'movie': '/images/items-1/movie.webp'
+  // Derived data
+  const starterIndex = gameData.findIndex(item => item.isStarter);
+  const starterPiece = {
+    piece: gameData[starterIndex].id,
+    position: starterIndex
   };
+
+  const correctOrder = gameData.map(item => item.id);
+  
+  const allPieces = gameData.reduce((acc, item) => {
+    acc[item.id] = item.image;
+    return acc;
+  }, {});
 
   // Shuffle function
   const shuffleArray = (array) => {
@@ -48,26 +57,48 @@ const GameContainer = () => {
   const [gameStatus, setGameStatus] = useState('playing'); // 'playing' | 'won' | 'failed'
   const [feedback, setFeedback] = useState({});
   const [isChecking, setIsChecking] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [correctPositions, setCorrectPositions] = useState(new Set([starterPiece.position])); // Positions that are correct and locked
+  const [hasChanges, setHasChanges] = useState(false); // Track if moves have been made since last check
+  const [lastCheckedBoard, setLastCheckedBoard] = useState(null); // Store board state after each check
+  const [activeBoardIndex, setActiveBoardIndex] = useState(null); // Track which board position is being dragged
+  const [activeTrayIndex, setActiveTrayIndex] = useState(null); // Track which tray position is being dragged
   
-  // Tray reordering state
-  const [isDraggingInTray, setIsDraggingInTray] = useState(false);
-  const trayPositions = useRef([]).current;
 
   // Initialize game on mount
   useEffect(() => {
     initializeGame();
   }, []);
 
+  // Detect board changes compared to last check
+  useEffect(() => {
+    if (!lastCheckedBoard) return; // Wait for initialization
+    
+    // Compare current board with last checked board
+    const boardChanged = boardSpaces.some((piece, index) => piece !== lastCheckedBoard[index]);
+    setHasChanges(boardChanged);
+  }, [boardSpaces, lastCheckedBoard]);
+
   const initializeGame = () => {
-    const shuffledPieces = shuffleArray(Object.keys(allPieces));
+    // Filter out starter piece from tray
+    const piecesForTray = Object.keys(allPieces).filter(p => p !== starterPiece.piece);
+    const shuffledPieces = shuffleArray(piecesForTray);
     setTraySpaces(shuffledPieces);
-    setBoardSpaces(Array(12).fill(null));
+    
+    // Initialize board with starter piece in correct position
+    const initialBoard = Array(12).fill(null);
+    initialBoard[starterPiece.position] = starterPiece.piece;
+    setBoardSpaces(initialBoard);
+    
     setSelectedPiece(null);
     setSelectedFrom(null);
     setTriesRemaining(5);
     setGameStatus('playing');
     setFeedback({});
     setIsChecking(false);
+    setCorrectPositions(new Set([starterPiece.position])); // Reset to just starter
+    setHasChanges(false); // No changes at start
+    setLastCheckedBoard([...initialBoard]); // Set initial board as baseline for comparison
   };
 
   // Handle tray piece click
@@ -112,6 +143,12 @@ const GameContainer = () => {
     const fromLocation = from || selectedFrom;
 
     if (!pieceToPlace || !fromLocation) return;
+
+    // Can't place on correct locked positions
+    if (correctPositions.has(boardIndex)) {
+      console.log('Cannot place on correct locked position');
+      return;
+    }
 
     const targetPiece = boardSpaces[boardIndex];
 
@@ -168,30 +205,9 @@ const GameContainer = () => {
     }
   };
 
-  // Set tray position for reordering
-  const setTrayPosition = (index, position) => {
-    trayPositions[index] = position;
-  };
-
-  // Handle tray reordering during drag
-  const lastReorderTime = useRef(0);
-  const handleTrayReorder = (dragIndex, dragOffsetX) => {
-    // Throttle reordering to prevent too frequent updates
-    const now = Date.now();
-    if (now - lastReorderTime.current < 50) return; // 50ms throttle
-    
-    const targetIndex = findDragIndex(dragIndex, dragOffsetX, trayPositions);
-    if (targetIndex !== dragIndex && targetIndex >= 0 && targetIndex < traySpaces.length) {
-      lastReorderTime.current = now;
-      setTraySpaces(arrayMove(traySpaces, dragIndex, targetIndex));
-    }
-  };
-
   // Handle Framer Motion drag end
   const handleDragEnd = (event, info, pieceData) => {
     if (gameStatus !== 'playing') return;
-    
-    setIsDraggingInTray(false);
 
     const { id, fromType, fromIndex } = pieceData;
     
@@ -210,17 +226,18 @@ const GameContainer = () => {
       }
     }
     
-    // Get all board spaces
-    const boardSpaces = document.querySelectorAll('.board-space');
+    // Get all drop zone DOM elements
+    const boardSpaceElements = document.querySelectorAll('.board-space');
+    const traySpaceElements = document.querySelectorAll('.tray-space');
     const draggedElement = event.target.getBoundingClientRect();
     const draggedCenterX = draggedElement.left + draggedElement.width / 2;
     const draggedCenterY = draggedElement.top + draggedElement.height / 2;
 
     // Find which board space the piece was dropped on
     let targetBoardIndex = null;
-    let minDistance = Infinity;
+    let minBoardDistance = Infinity;
     
-    boardSpaces.forEach((space) => {
+    boardSpaceElements.forEach((space) => {
       const rect = space.getBoundingClientRect();
       const spaceCenterX = rect.left + rect.width / 2;
       const spaceCenterY = rect.top + rect.height / 2;
@@ -230,33 +247,82 @@ const GameContainer = () => {
       );
       
       // Find the closest board space within 60px
-      if (distance < 60 && distance < minDistance) {
-        minDistance = distance;
+      if (distance < 60 && distance < minBoardDistance) {
+        minBoardDistance = distance;
         targetBoardIndex = parseInt(space.dataset.dropIndex);
       }
     });
 
-    // If dropped on a board space and it's not the same position
+    // Find which tray space was dropped on (for board-to-tray)
+    let targetTrayIndex = null;
+    let minTrayDistance = Infinity;
+    
+    traySpaceElements.forEach((space, idx) => {
+      const rect = space.getBoundingClientRect();
+      const spaceCenterX = rect.left + rect.width / 2;
+      const spaceCenterY = rect.top + rect.height / 2;
+      const distance = Math.sqrt(
+        Math.pow(draggedCenterX - spaceCenterX, 2) + 
+        Math.pow(draggedCenterY - spaceCenterY, 2)
+      );
+      
+      // Find the closest tray space within 40px
+      if (distance < 40 && distance < minTrayDistance) {
+        minTrayDistance = distance;
+        targetTrayIndex = idx;
+      }
+    });
+
+    // Handle drop on board space
     if (targetBoardIndex !== null && !(fromType === 'board' && fromIndex === targetBoardIndex)) {
       placePiece(targetBoardIndex, id, { type: fromType, index: fromIndex });
-      // Clear selection state after drag operation
       setSelectedPiece(null);
       setSelectedFrom(null);
     }
-    // If not dropped on board, piece will snap back automatically
+    // Handle drop on tray (board-to-tray)
+    else if (targetTrayIndex !== null && fromType === 'board') {
+      // Use state variables
+      const newBoard = [...boardSpaces];
+      const newTray = [...traySpaces];
+      
+      const targetTrayPiece = newTray[targetTrayIndex];
+      
+      // Remove piece from board
+      newBoard[fromIndex] = null;
+      
+      // If tray spot has a piece, swap it to board
+      if (targetTrayPiece) {
+        newBoard[fromIndex] = targetTrayPiece;
+      }
+      
+      // Place board piece in tray
+      newTray[targetTrayIndex] = id;
+      
+      setBoardSpaces(newBoard);
+      setTraySpaces(newTray);
+      setSelectedPiece(null);
+      setSelectedFrom(null);
+    }
+    // If not dropped anywhere valid, piece will snap back automatically
   };
 
   // Check answers
   const handleCheck = () => {
     if (gameStatus !== 'playing' || isChecking) return;
 
+    // Store current board state and reset hasChanges immediately
+    setLastCheckedBoard([...boardSpaces]);
+    setHasChanges(false);
+    
     setIsChecking(true);
     const newFeedback = {};
+    const newCorrectPositions = new Set(correctPositions);
     let allCorrect = true;
 
     boardSpaces.forEach((piece, index) => {
       if (piece === correctOrder[index]) {
         newFeedback[index] = 'correct';
+        newCorrectPositions.add(index); // Mark as permanently correct
       } else {
         newFeedback[index] = 'wrong';
         allCorrect = false;
@@ -264,6 +330,7 @@ const GameContainer = () => {
     });
 
     setFeedback(newFeedback);
+    setCorrectPositions(newCorrectPositions); // Lock correct pieces
 
     // Animate feedback
     setTimeout(() => {
@@ -284,20 +351,37 @@ const GameContainer = () => {
 
   // Render game pieces in board
   const renderBoardPieces = () => {
-    return boardSpaces.map((piece, index) => 
-      piece ? (
+    return boardSpaces.map((piece, index) => {
+      const isCorrectLocked = correctPositions.has(index);
+      console.log(`Board piece ${piece} at index ${index}: isDraggable=${gameStatus === 'playing' && !isCorrectLocked}, gameStatus=${gameStatus}, isCorrectLocked=${isCorrectLocked}`);
+      
+      return piece ? (
         <GamePiece
           key={`board-${index}-${piece}`}
           id={piece}
           imageSrc={allPieces[piece]}
           alt={piece}
-          isSelected={selectedPiece === piece && selectedFrom?.type === 'board' && selectedFrom?.index === index}
-          isDraggable={gameStatus === 'playing'}
+          isSelected={!isCorrectLocked && selectedPiece === piece && selectedFrom?.type === 'board' && selectedFrom?.index === index}
+          isDraggable={gameStatus === 'playing' && !isCorrectLocked}
           fromType="board"
           fromIndex={index}
-          onDragEnd={handleDragEnd}
+          feedback={feedback[index]} // Pass feedback for color changes
+          isCorrectLocked={isCorrectLocked} // Pass correct locked state for teal background
+          onDragStart={() => {
+            console.log(`Dragging board piece: ${piece} from index ${index}, isLocked: ${isCorrectLocked}`);
+            setIsDragging(true);
+            setActiveBoardIndex(index); // Mark this board position as active
+          }}
+          onDragEnd={(event, info, pieceData) => {
+            setIsDragging(false);
+            setActiveBoardIndex(null); // Clear active on drag end
+            handleDragEnd(event, info, pieceData);
+          }}
           onClick={(e) => {
             e.stopPropagation(); // Prevent BoardSpace click
+            
+            // Correct locked pieces can't be selected or moved
+            if (isCorrectLocked) return;
             
             // If clicking the same selected piece, deselect it
             if (selectedPiece === piece && selectedFrom?.type === 'board' && selectedFrom?.index === index) {
@@ -319,23 +403,25 @@ const GameContainer = () => {
             }
           }}
         />
-      ) : null
-    );
+      ) : null;
+    });
+  };
+
+  // Handle clicks on background to close modal
+  const handleBackgroundClick = (e) => {
+    // Only close if clicking directly on the background (not on game elements)
+    if (e.target === e.currentTarget) {
+      setSelectedPiece(null);
+      setSelectedFrom(null);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex flex-col items-center justify-center p-8">
-      <motion.div
-        initial={{ opacity: 0, y: -50 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
-        className="text-center space-y-8 max-w-4xl w-full"
-      >
-        {/* Header */}
-        <h1 className="text-5xl font-bold text-white mb-8">
-          Loop Sequence Game
-        </h1>
-
+    <div 
+      className="max-w-sm w-full  flex flex-col items-center justify-center"
+      onClick={handleBackgroundClick}
+    >
+      <div className="relative flex flex-col items-center justify-center text-center space-y-8 max-w-sm w-full">
         {/* Win/Fail Message */}
         {gameStatus !== 'playing' && (
           <motion.div
@@ -346,74 +432,45 @@ const GameContainer = () => {
             {gameStatus === 'won' ? '🎉 You Win!' : '😞 Failed - Try Again!'}
           </motion.div>
         )}
-
+       {/* Piece Zoom Modal - always rendered, visibility controlled by prop */}
+       <PieceModal
+         piece={selectedPiece}
+         imageSrc={selectedPiece ? allPieces[selectedPiece] : ''}
+         isVisible={!!(selectedPiece && selectedFrom)}
+         onClose={() => {
+           setSelectedPiece(null);
+           setSelectedFrom(null);
+         }}
+       />
         {/* Game Board */}
         <GameBoard
           boardSpaces={renderBoardPieces()}
           feedback={feedback}
           onBoardSpaceClick={handleBoardSpaceClick}
           isLocked={gameStatus !== 'playing'}
+          isDragging={isDragging}
+          correctPositions={Array.from(correctPositions)}
+          activeBoardIndex={activeBoardIndex}
         />
-
-        {/* Game Tray - Using Reorder for smooth reordering */}
-        <Reorder.Group
-          axis="x"
-          values={traySpaces.filter(p => p !== null)}
-          onReorder={(newOrder) => {
-            // Merge reordered pieces back with null placeholders
-            const newTray = [...traySpaces];
-            let newOrderIndex = 0;
-            for (let i = 0; i < newTray.length; i++) {
-              if (newTray[i] !== null) {
-                newTray[i] = newOrder[newOrderIndex];
-                newOrderIndex++;
-              }
-            }
-            setTraySpaces(newTray);
-          }}
-          className="flex flex-wrap gap-3 justify-center p-4 bg-slate-800/30 rounded-2xl backdrop-blur-sm"
-          style={{ listStyle: 'none', margin: 0, padding: '1rem' }}
-        >
-          {traySpaces.map((piece, index) => 
-            piece ? (
-              <TrayItem
-                key={piece}
-                piece={piece}
-                index={index}
-                allPieces={allPieces}
-                selectedPiece={selectedPiece}
-                selectedFrom={selectedFrom}
-                gameStatus={gameStatus}
-                handleTraySpaceClick={handleTraySpaceClick}
-                handleDragToBoard={handleDragEnd}
-                handleTrayReorder={handleTrayReorder}
-                traySpaces={traySpaces}
-                setPosition={setTrayPosition}
-              />
-            ) : (
-              <div key={`empty-${index}`} className="w-[50px] h-[50px]">
-                <TraySpace
-                  index={index}
-                  piece={null}
-                  isEmpty={true}
-                  setPosition={setTrayPosition}
-                />
-              </div>
-            )
-          )}
-        </Reorder.Group>
-
+        
         {/* Controls */}
-        <div className="flex flex-col items-center gap-4 mt-8">
-          {/* Try Indicator */}
-          <TryIndicator triesRemaining={triesRemaining} totalTries={5} />
-
+        <div className="absolute flex flex-col items-center gap-2 m-0 top-[176px] left-1/2 -translate-x-1/2">
           {/* Check Button */}
           {gameStatus === 'playing' && (
-            <Button onClick={handleCheck} disabled={isChecking}>
-              Check
+            <Button 
+              onClick={handleCheck} 
+              disabled={!hasChanges || isChecking}
+              tooltipText="Make a move first!"
+            >
+              CHECK
             </Button>
           )}
+          {/* Try Indicator */}
+          <TryIndicator 
+            triesRemaining={triesRemaining} 
+            totalTries={5} 
+            hasChanges={hasChanges}
+          />
 
           {/* Reset Button */}
           {gameStatus !== 'playing' && (
@@ -421,8 +478,55 @@ const GameContainer = () => {
               Reset
             </Button>
           )}
-        </div>
-      </motion.div>
+        </div>{/* END Controls */}
+        
+        {/* Game Tray - CSS Grid layout: 6 columns, auto-wraps to 2 rows (6 + 5), centered */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="flex place-items-center place-content-center justify-center flex-wrap  gap-x-2 gap-y-2 w-full p-3 [background:var(--bg-tray)] rounded-2xl "
+        >
+ 
+          {traySpaces.map((piece, index) => (
+            <TraySpace
+              key={`tray-space-${index}`}
+              index={index}
+              style={{ zIndex: activeTrayIndex === index ? 50 : 0 }}
+              piece={piece ? (
+                <GamePiece
+                  key={`tray-${piece}`}
+                  id={piece}
+                  imageSrc={allPieces[piece]}
+                  alt={piece}
+                  isSelected={selectedPiece === piece && selectedFrom?.type === 'tray' && selectedFrom?.index === index}
+                  isDraggable={gameStatus === 'playing'}
+                  fromType="tray"
+                  fromIndex={index}
+                  dragSnapToOrigin={true}
+                  onDragStart={() => {
+                    setIsDragging(true);
+                    setActiveTrayIndex(index); // Mark tray position as active
+                  }}
+                  onDragEnd={(event, info, pieceData) => {
+                    setIsDragging(false);
+                    setActiveTrayIndex(null); // Clear active
+                    handleDragEnd(event, info, pieceData);
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleTraySpaceClick(index);
+                  }}
+                />
+              ) : null}
+              isEmpty={!piece}
+              onClick={() => handleTraySpaceClick(index)}
+            />
+          ))}
+        </motion.div>
+      </div>
+
+
     </div>
   );
 };

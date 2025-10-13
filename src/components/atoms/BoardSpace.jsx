@@ -54,7 +54,7 @@ const BoardSpace = ({
       {/* Hover Ring - appears on hover (always, not just when dragging) */}
       {canShowHoverRing && (
         <div
-          className="absolute inset-0 -m-[5px] w-[78px] h-[78px] z-0 opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out pointer-events-none"
+          className="hover-ringabsolute inset-0 -m-[5px] w-[78px] h-[78px] z-0 opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out pointer-events-none"
           style={{
             backgroundImage: 'url(/images/board-space-hover.svg)',
             backgroundSize: 'cover',
@@ -65,7 +65,7 @@ const BoardSpace = ({
 
       {/* Game Piece - higher z-index */}
       {piece && (
-        <div className="absolute inset-0 flex items-center justify-center z-10">
+        <div className="game-piece-wrapper absolute inset-0 flex items-center justify-center z-10">
           {piece}
         </div>
       )}

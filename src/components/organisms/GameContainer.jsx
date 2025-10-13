@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import GameBoard from '../molecules/GameBoard';
-import TryIndicator from '../molecules/TryIndicator';
 import TraySpace from '../atoms/TraySpace';
 import GamePiece from '../atoms/GamePiece';
-import Button from '../atoms/Button';
 import PieceModal from '../molecules/PieceModal';
+import BackgroundLayer from '../molecules/BackgroundLayer';
+import Controls from '../molecules/Controls';
 
 const GameContainer = () => {
   // Game data - single source of truth
@@ -63,6 +63,7 @@ const GameContainer = () => {
   const [lastCheckedBoard, setLastCheckedBoard] = useState(null); // Store board state after each check
   const [activeBoardIndex, setActiveBoardIndex] = useState(null); // Track which board position is being dragged
   const [activeTrayIndex, setActiveTrayIndex] = useState(null); // Track which tray position is being dragged
+  const [hoveredSwapTarget, setHoveredSwapTarget] = useState(null); // Track hover target during drag for swap preview
   
 
   // Initialize game on mount
@@ -349,30 +350,62 @@ const GameContainer = () => {
     }, 2000);
   };
 
-  // Render game pieces in board
-  const renderBoardPieces = () => {
-    return boardSpaces.map((piece, index) => {
-      const isCorrectLocked = correctPositions.has(index);
-      console.log(`Board piece ${piece} at index ${index}: isDraggable=${gameStatus === 'playing' && !isCorrectLocked}, gameStatus=${gameStatus}, isCorrectLocked=${isCorrectLocked}`);
-      
-      return piece ? (
-        <GamePiece
-          key={`board-${index}-${piece}`}
-          id={piece}
-          imageSrc={allPieces[piece]}
-          alt={piece}
-          isSelected={!isCorrectLocked && selectedPiece === piece && selectedFrom?.type === 'board' && selectedFrom?.index === index}
-          isDraggable={gameStatus === 'playing' && !isCorrectLocked}
-          fromType="board"
-          fromIndex={index}
-          feedback={feedback[index]} // Pass feedback for color changes
-          isCorrectLocked={isCorrectLocked} // Pass correct locked state for teal background
+  // Create board piece render function for GameBoard to use
+  const createBoardPiece = (piece, index, swapOffset) => {
+    const isCorrectLocked = correctPositions.has(index);
+    
+    return (
+      <GamePiece
+        key={`board-${index}-${piece}`}
+        id={piece}
+        imageSrc={allPieces[piece]}
+        alt={piece}
+        isSelected={!isCorrectLocked && selectedPiece === piece && selectedFrom?.type === 'board' && selectedFrom?.index === index}
+        isDraggable={gameStatus === 'playing' && !isCorrectLocked}
+        fromType="board"
+        fromIndex={index}
+        feedback={feedback[index]}
+        isCorrectLocked={isCorrectLocked}
+        swapOffset={swapOffset}
+        onDrag={(event, info) => {
+            // Detect hover target for swap preview
+            const draggedRect = event.target.getBoundingClientRect();
+            const draggedCenterX = draggedRect.left + draggedRect.width / 2;
+            const draggedCenterY = draggedRect.top + draggedRect.height / 2;
+            
+            const boardSpaceElements = document.querySelectorAll('.board-space');
+            let closestIndex = null;
+            let minDistance = 60;
+            
+            boardSpaceElements.forEach((space) => {
+              const rect = space.getBoundingClientRect();
+              const centerX = rect.left + rect.width / 2;
+              const centerY = rect.top + rect.height / 2;
+              const distance = Math.sqrt(
+                Math.pow(draggedCenterX - centerX, 2) + 
+                Math.pow(draggedCenterY - centerY, 2)
+              );
+              
+              if (distance < minDistance) {
+                minDistance = distance;
+                closestIndex = parseInt(space.dataset.dropIndex);
+              }
+            });
+            
+            // Set hover target if over occupied space (for swap) and not self
+            if (closestIndex !== null && closestIndex !== index && boardSpaces[closestIndex]) {
+              setHoveredSwapTarget({ type: 'board', index: closestIndex });
+            } else {
+              setHoveredSwapTarget(null);
+            }
+          }}
           onDragStart={() => {
             console.log(`Dragging board piece: ${piece} from index ${index}, isLocked: ${isCorrectLocked}`);
             setIsDragging(true);
             setActiveBoardIndex(index); // Mark this board position as active
           }}
           onDragEnd={(event, info, pieceData) => {
+            setHoveredSwapTarget(null); // Clear hover on drag end
             setIsDragging(false);
             setActiveBoardIndex(null); // Clear active on drag end
             handleDragEnd(event, info, pieceData);
@@ -403,8 +436,7 @@ const GameContainer = () => {
             }
           }}
         />
-      ) : null;
-    });
+    );
   };
 
   // Handle clicks on background to close modal
@@ -418,10 +450,17 @@ const GameContainer = () => {
 
   return (
     <div 
-      className="max-w-sm w-full  flex flex-col items-center justify-center"
+      className="GameContainer-wrapper relative min-h-screen flex items-center justify-center p-8"
       onClick={handleBackgroundClick}
     >
-      <div className="relative flex flex-col items-center justify-center text-center space-y-8 max-w-sm w-full">
+
+      
+      {/* Main content wrapper */}
+      <div className="GameContainer relative flex flex-col items-center justify-center text-center space-y-8 max-w-sm w-full">
+        
+        {/* Layer 0: Background (gradient + ring) */}
+        <BackgroundLayer gameStatus={gameStatus} />
+        
         {/* Win/Fail Message */}
         {gameStatus !== 'playing' && (
           <motion.div
@@ -432,60 +471,54 @@ const GameContainer = () => {
             {gameStatus === 'won' ? '🎉 You Win!' : '😞 Failed - Try Again!'}
           </motion.div>
         )}
-       {/* Piece Zoom Modal - always rendered, visibility controlled by prop */}
-       <PieceModal
-         piece={selectedPiece}
-         imageSrc={selectedPiece ? allPieces[selectedPiece] : ''}
-         isVisible={!!(selectedPiece && selectedFrom)}
-         onClose={() => {
-           setSelectedPiece(null);
-           setSelectedFrom(null);
-         }}
-       />
-        {/* Game Board */}
-        <GameBoard
-          boardSpaces={renderBoardPieces()}
-          feedback={feedback}
-          onBoardSpaceClick={handleBoardSpaceClick}
-          isLocked={gameStatus !== 'playing'}
-          isDragging={isDragging}
-          correctPositions={Array.from(correctPositions)}
-          activeBoardIndex={activeBoardIndex}
+
+        {/* Layer 10: Controls */}
+        <Controls 
+          gameStatus={gameStatus}
+          hasChanges={hasChanges}
+          triesRemaining={triesRemaining}
+          totalTries={5}
+          isChecking={isChecking}
+          onCheck={handleCheck}
+          onReset={initializeGame}
+          className="z-10"
+        />
+
+        {/* Layer 20: Piece Zoom Modal */}
+        <PieceModal
+          piece={selectedPiece}
+          imageSrc={selectedPiece ? allPieces[selectedPiece] : ''}
+          isVisible={!!(selectedPiece && selectedFrom)}
+          onClose={() => {
+            setSelectedPiece(null);
+            setSelectedFrom(null);
+          }}
+          className="z-20"
         />
         
-        {/* Controls */}
-        <div className="absolute flex flex-col items-center gap-2 m-0 top-[176px] left-1/2 -translate-x-1/2">
-          {/* Check Button */}
-          {gameStatus === 'playing' && (
-            <Button 
-              onClick={handleCheck} 
-              disabled={!hasChanges || isChecking}
-              tooltipText="Make a move first!"
-            >
-              CHECK
-            </Button>
-          )}
-          {/* Try Indicator */}
-          <TryIndicator 
-            triesRemaining={triesRemaining} 
-            totalTries={5} 
-            hasChanges={hasChanges}
+        {/* Layer 30: Game Board - z-50 when dragging from board, z-30 otherwise */}
+        <div className="relative" style={{ zIndex: activeBoardIndex !== null ? 50 : 30 }}>
+          <GameBoard
+            boardSpaces={boardSpaces}
+            allPieces={allPieces}
+            createBoardPiece={createBoardPiece}
+            feedback={feedback}
+            onBoardSpaceClick={handleBoardSpaceClick}
+            isLocked={gameStatus !== 'playing'}
+            isDragging={isDragging}
+            correctPositions={Array.from(correctPositions)}
+            activeBoardIndex={activeBoardIndex}
+            hoveredSwapTarget={hoveredSwapTarget}
           />
-
-          {/* Reset Button */}
-          {gameStatus !== 'playing' && (
-            <Button onClick={initializeGame}>
-              Reset
-            </Button>
-          )}
-        </div>{/* END Controls */}
+        </div>
         
-        {/* Game Tray - CSS Grid layout: 6 columns, auto-wraps to 2 rows (6 + 5), centered */}
+        {/* Layer 40: Game Tray - z-50 when dragging from tray, z-40 otherwise */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="flex place-items-center place-content-center justify-center flex-wrap  gap-x-2 gap-y-2 w-full p-3 [background:var(--bg-tray)] rounded-2xl "
+          className="relative flex place-items-center place-content-center justify-center flex-wrap gap-x-2 gap-y-2 w-full p-3 [background:var(--bg-tray)] rounded-2xl"
+          style={{ zIndex: activeTrayIndex !== null ? 50 : 40 }}
         >
  
           {traySpaces.map((piece, index) => (
@@ -504,11 +537,44 @@ const GameContainer = () => {
                   fromType="tray"
                   fromIndex={index}
                   dragSnapToOrigin={true}
+                  onDrag={(event, info) => {
+                    // Detect hover target for swap preview (same logic as board pieces)
+                    const draggedRect = event.target.getBoundingClientRect();
+                    const draggedCenterX = draggedRect.left + draggedRect.width / 2;
+                    const draggedCenterY = draggedRect.top + draggedRect.height / 2;
+                    
+                    const boardSpaceElements = document.querySelectorAll('.board-space');
+                    let closestIndex = null;
+                    let minDistance = 60;
+                    
+                    boardSpaceElements.forEach((space) => {
+                      const rect = space.getBoundingClientRect();
+                      const centerX = rect.left + rect.width / 2;
+                      const centerY = rect.top + rect.height / 2;
+                      const distance = Math.sqrt(
+                        Math.pow(draggedCenterX - centerX, 2) + 
+                        Math.pow(draggedCenterY - centerY, 2)
+                      );
+                      
+                      if (distance < minDistance) {
+                        minDistance = distance;
+                        closestIndex = parseInt(space.dataset.dropIndex);
+                      }
+                    });
+                    
+                    // Set hover target if over occupied board space (for swap)
+                    if (closestIndex !== null && boardSpaces[closestIndex]) {
+                      setHoveredSwapTarget({ type: 'board', index: closestIndex });
+                    } else {
+                      setHoveredSwapTarget(null);
+                    }
+                  }}
                   onDragStart={() => {
                     setIsDragging(true);
                     setActiveTrayIndex(index); // Mark tray position as active
                   }}
                   onDragEnd={(event, info, pieceData) => {
+                    setHoveredSwapTarget(null); // Clear hover on drag end
                     setIsDragging(false);
                     setActiveTrayIndex(null); // Clear active
                     handleDragEnd(event, info, pieceData);

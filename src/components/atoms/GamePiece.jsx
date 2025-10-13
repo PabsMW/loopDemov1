@@ -19,6 +19,7 @@ const GamePiece = ({
   fromIndex,
   feedback = null, // 'correct' | 'wrong' | null
   isCorrectLocked = false, // For starter piece and permanently correct pieces
+  swapOffset = { x: 0, y: 0 }, // Offset for swap preview animation
   className = ''
 }) => {
   // Size based on location: 60px on board, 50px in tray
@@ -98,6 +99,7 @@ const GamePiece = ({
 
       {/* Draggable wrapper (z-2) - contains bg-color and image, moves during drag */}
       <motion.div
+        layout
         drag={isDraggable}
         dragDirectionLock={dragDirectionLock}
         onDirectionLock={onDirectionLock}
@@ -124,9 +126,19 @@ const GamePiece = ({
 
         onClick={onClick}
         onPointerDown={onPointerDown}
-        className={`piece-is-dragging box-shadow-piece-dragging rounded-full relative cursor-grab active:cursor-grabbing ${className}`}
-        whileDrag={{ scale: 1.05, zIndex: 9999, pointerEvents: 'none' }}
-        style={{ zIndex: 1 }}
+        className={`piece-that-drags box-shadow-piece-dragging rounded-full relative cursor-grab active:cursor-grabbing ${className}`}
+        whileDrag={{ scale: 1, zIndex: 9999, pointerEvents: 'none' }}
+        animate={{
+          x: swapOffset.x,
+          y: swapOffset.y,
+          scale: swapOffset.scale || 1
+        }}
+        transition={{ 
+          x: { type: "spring", stiffness: 400, damping: 25 },
+          y: { type: "spring", stiffness: 400, damping: 25 },
+          scale: { type: "spring", stiffness: 400, damping: 25 }
+        }}
+        style={{ zIndex: 2 }}
       >
         {/* Background color div - behind image, animates with feedback */}
         <motion.div

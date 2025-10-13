@@ -3,12 +3,15 @@ import BoardSpace from '../atoms/BoardSpace';
 
 const GameBoard = ({ 
   boardSpaces,
+  allPieces,
+  createBoardPiece,
   feedback,
   onBoardSpaceClick,
   isLocked,
   isDragging = false,
   correctPositions = [],
   activeBoardIndex = null,
+  hoveredSwapTarget = null,
   className = ''
 }) => {
   // Calculate position for each BoardSpace around the circle
@@ -26,15 +29,21 @@ const GameBoard = ({
   };
 
   return (
-    <div className={`relative flex items-center justify-center w-[390px] h-[390px] [background:var(--bg-primary)] ${className}`}>
-      {/* Background Ring */}
-      <div 
-        className="flex items-center justify-center -z-10 pointer-events-none w-[326px] h-[326px] bg-[url(/images/bg-ring-sm.svg)] bg-contain bg-center bg-no-repeat z-0"
-      />
-      
+    <div className={`GameBoard relative flex items-center justify-center w-[390px] h-[390px] ${className}`}>
       {/* BoardSpaces positioned in circle */}
       {boardSpaces.map((piece, index) => {
         const { x, y } = getPosition(index);
+        
+        // Calculate swap offset for this piece if it's being hovered during drag
+        const isHoverTarget = hoveredSwapTarget?.type === 'board' && hoveredSwapTarget.index === index;
+        const isLeftSide = index >= 6 && index <= 11;
+        const swapOffset = isHoverTarget 
+          ? { x: isLeftSide ? 30 : -30, y: -10, scale: 0.84 }
+          : { x: 0, y: 0, scale: 1 };
+        
+        // Create the piece component with swapOffset
+        const pieceComponent = piece ? createBoardPiece(piece, index, swapOffset) : null;
+        
         return (
           <div
             key={index}
@@ -47,7 +56,7 @@ const GameBoard = ({
           >
             <BoardSpace
               index={index}
-              piece={piece}
+              piece={pieceComponent}
               feedback={feedback[index]}
               onClick={onBoardSpaceClick}
               isLocked={isLocked}

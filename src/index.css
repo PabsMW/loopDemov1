@@ -63,7 +63,7 @@
 }
 
 :root {
-  --bg-primary: radial-gradient(circle at center, var(--color-sky-950) 0%, var(--color-sky-975) 40%, theme(colors.slate.950) 60%);
+  --bg-primary-radial: radial-gradient(circle at center, var(--color-sky-950) 0%, var(--color-sky-975) 40%, theme(colors.slate.950) 60%);
   
   --bg-tray: linear-gradient(180deg, var(--color-sky-950) 0%, theme(colors.slate.900) 100%);
 

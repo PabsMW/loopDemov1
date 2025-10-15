@@ -12,6 +12,7 @@ const GameBoard = ({
   correctPositions = [],
   activeBoardIndex = null,
   hoveredSwapTarget = null,
+  hasSelectedPiece = false,
   className = ''
 }) => {
   // Calculate position for each BoardSpace around the circle
@@ -62,6 +63,7 @@ const GameBoard = ({
               isLocked={isLocked}
               isDragging={isDragging}
               isCorrectLocked={correctPositions.includes(index)}
+              hasSelectedPiece={hasSelectedPiece}
             />
           </div>
         );

@@ -1,5 +1,13 @@
 import { motion } from 'framer-motion';
 import { useState } from 'react';
+import { 
+  SWAP_FLY_DURATION, 
+  RING_FADE_DURATION, 
+  COLOR_FADE,
+  OPACITY_FADE_DURATION,
+  PIECE_SPRING,
+  SIZE_SPRING 
+} from '../../constants/animations';
 
 const GamePiece = ({ 
   id, 
@@ -20,6 +28,8 @@ const GamePiece = ({
   feedback = null, // 'correct' | 'wrong' | null
   isCorrectLocked = false, // For starter piece and permanently correct pieces
   swapOffset = { x: 0, y: 0 }, // Offset for swap preview animation
+  swapAnimation = null, // Fly-fade animation during swap
+  delayLayout = false, // Delay layout animation for dragged piece during swap
   className = ''
 }) => {
   // Size based on location: 60px on board, 50px in tray
@@ -49,7 +59,7 @@ const GamePiece = ({
   
   return (
     <div 
-      className="relative inline-block"
+      className="GamePiece relative inline-block"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -59,7 +69,7 @@ const GamePiece = ({
           initial={{ opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.5 }}
-          transition={{ duration: 0.2 }}
+          transition={{ duration: RING_FADE_DURATION }}
           src="/images/piece-hover-tray.svg"
           alt="hover"
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
@@ -81,7 +91,7 @@ const GamePiece = ({
           initial={{ opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.5 }}
-          transition={{ duration: 0.2 }}
+          transition={{ duration: RING_FADE_DURATION }}
           src={activeRingSvg}
           alt="selected"
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 drop-shadow-ring-active pointer-events-none"
@@ -99,7 +109,7 @@ const GamePiece = ({
 
       {/* Draggable wrapper (z-2) - contains bg-color and image, moves during drag */}
       <motion.div
-        layout
+        layout={!delayLayout}
         drag={isDraggable}
         dragDirectionLock={dragDirectionLock}
         onDirectionLock={onDirectionLock}
@@ -128,15 +138,23 @@ const GamePiece = ({
         onPointerDown={onPointerDown}
         className={`piece-that-drags box-shadow-piece-dragging rounded-full relative cursor-grab active:cursor-grabbing ${className}`}
         whileDrag={{ scale: 1, zIndex: 9999, pointerEvents: 'none' }}
-        animate={{
+        initial={swapAnimation ? {
+          x: swapAnimation.startX,
+          y: swapAnimation.startY,
+          scale: 0.84,
+          opacity: 1
+        } : false}
+        animate={swapAnimation || {
           x: swapOffset.x,
           y: swapOffset.y,
-          scale: swapOffset.scale || 1
+          scale: swapOffset.scale || 1,
+          opacity: 1
         }}
         transition={{ 
-          x: { type: "spring", stiffness: 400, damping: 25 },
-          y: { type: "spring", stiffness: 400, damping: 25 },
-          scale: { type: "spring", stiffness: 400, damping: 25 }
+          x: { duration: swapAnimation ? SWAP_FLY_DURATION : undefined, ease: swapAnimation ? "easeOut" : undefined, type: swapAnimation ? "tween" : "spring", ...PIECE_SPRING },
+          y: { duration: swapAnimation ? SWAP_FLY_DURATION : undefined, ease: swapAnimation ? "easeOut" : undefined, type: swapAnimation ? "tween" : "spring", ...PIECE_SPRING },
+          scale: { type: "spring", ...PIECE_SPRING },
+          opacity: { duration: swapAnimation ? SWAP_FLY_DURATION : OPACITY_FADE_DURATION }
         }}
         style={{ zIndex: 2 }}
       >
@@ -153,9 +171,9 @@ const GamePiece = ({
               : '#F6F4EE'  // cotton-300
           }}
           transition={{ 
-            width: { type: "spring", stiffness: 500, damping: 30 },
-            height: { type: "spring", stiffness: 500, damping: 30 },
-            backgroundColor: { duration: 0.5, ease: "easeInOut" }
+            width: { type: "spring", ...SIZE_SPRING },
+            height: { type: "spring", ...SIZE_SPRING },
+            backgroundColor: { ...COLOR_FADE }
           }}
           style={{ zIndex: 0 }}
         />
@@ -171,8 +189,7 @@ const GamePiece = ({
           }}
           transition={{ 
             type: "spring",
-            stiffness: 500,
-            damping: 30
+            ...SIZE_SPRING
           }}
           style={{ zIndex: 1 }}
         />

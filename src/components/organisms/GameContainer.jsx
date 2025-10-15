@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import GameBoard from '../molecules/GameBoard';
 import TraySpace from '../atoms/TraySpace';
 import GamePiece from '../atoms/GamePiece';
 import PieceModal from '../molecules/PieceModal';
 import BackgroundLayer from '../molecules/BackgroundLayer';
 import Controls from '../molecules/Controls';
+import { SWAP_FLY_DURATION } from '../../constants/animations';
 
 const GameContainer = () => {
   // Game data - single source of truth
@@ -64,6 +65,8 @@ const GameContainer = () => {
   const [activeBoardIndex, setActiveBoardIndex] = useState(null); // Track which board position is being dragged
   const [activeTrayIndex, setActiveTrayIndex] = useState(null); // Track which tray position is being dragged
   const [hoveredSwapTarget, setHoveredSwapTarget] = useState(null); // Track hover target during drag for swap preview
+  const [swappingPiece, setSwappingPiece] = useState(null); // Track piece flying/fading during swap
+  const [delayedLayoutPiece, setDelayedLayoutPiece] = useState(null); // Track dragged piece to delay layout animation
   
 
   // Initialize game on mount
@@ -354,6 +357,21 @@ const GameContainer = () => {
   const createBoardPiece = (piece, index, swapOffset) => {
     const isCorrectLocked = correctPositions.has(index);
     
+    // Check if this piece is flying/fading during swap
+    const isSwapping = swappingPiece?.type === 'board' && swappingPiece.index === index;
+    const swapAnimation = isSwapping 
+      ? { 
+          x: swappingPiece.targetX, // Final position (includes starting offset)
+          y: swappingPiece.targetY, 
+          opacity: 1,
+          startX: swappingPiece.startX, // Starting offset position
+          startY: swappingPiece.startY
+        }
+      : null;
+    
+    // Check if this is the dragged piece that should delay layout animation
+    const shouldDelayLayout = delayedLayoutPiece?.type === 'board' && delayedLayoutPiece.index === index;
+    
     return (
       <GamePiece
         key={`board-${index}-${piece}`}
@@ -367,6 +385,8 @@ const GameContainer = () => {
         feedback={feedback[index]}
         isCorrectLocked={isCorrectLocked}
         swapOffset={swapOffset}
+        swapAnimation={swapAnimation}
+        delayLayout={shouldDelayLayout}
         onDrag={(event, info) => {
             // Detect hover target for swap preview
             const draggedRect = event.target.getBoundingClientRect();
@@ -392,8 +412,8 @@ const GameContainer = () => {
               }
             });
             
-            // Set hover target if over occupied space (for swap) and not self
-            if (closestIndex !== null && closestIndex !== index && boardSpaces[closestIndex]) {
+            // Set hover target if over occupied space (for swap) and not self and not locked
+            if (closestIndex !== null && closestIndex !== index && boardSpaces[closestIndex] && !correctPositions.has(closestIndex)) {
               setHoveredSwapTarget({ type: 'board', index: closestIndex });
             } else {
               setHoveredSwapTarget(null);
@@ -405,6 +425,63 @@ const GameContainer = () => {
             setActiveBoardIndex(index); // Mark this board position as active
           }}
           onDragEnd={(event, info, pieceData) => {
+            // If hovering over valid swap target, trigger fly-fade animation
+            if (hoveredSwapTarget && hoveredSwapTarget.type === 'board') {
+              const targetIndex = hoveredSwapTarget.index;
+              const boardSpaceElements = document.querySelectorAll('.board-space');
+              const targetSpace = Array.from(boardSpaceElements).find(el => parseInt(el.dataset.dropIndex) === targetIndex);
+              const originSpace = Array.from(boardSpaceElements).find(el => parseInt(el.dataset.dropIndex) === index);
+              
+              if (targetSpace && originSpace) {
+                const targetRect = targetSpace.getBoundingClientRect();
+                const originRect = originSpace.getBoundingClientRect();
+                const dx = originRect.left - targetRect.left;
+                const dy = originRect.top - targetRect.top;
+                
+                // Calculate starting offset for bottom piece
+                const isLeftSide = targetIndex >= 6 && targetIndex <= 11;
+                const offsetX = isLeftSide ? 30 : -30;
+                const offsetY = -10;
+                
+                // After swap, Piano will be at position 'index' (Worm's origin)
+                // But it needs to START from position 'targetIndex' + offset (where it currently is)
+                // So: initial = distance from new position back to old position + offset
+                const startX = -dx + offsetX; // Reverse direction + offset
+                const startY = -dy + offsetY;
+                
+                // Trigger fly-fade on bottom piece (Piano)
+                setSwappingPiece({
+                  type: 'board',
+                  index: index, // Where Piano will be AFTER swap (position 3)
+                  startX: startX, // Absolute start position (from 9 o'clock + offset)
+                  startY: startY,
+                  targetX: 0, // Fly to center (0, 0 relative to new position)
+                  targetY: 0
+                });
+                
+                // Mark dragged piece (Worm) to delay its layout animation
+                // After swap, Worm will be at drop target (targetIndex)
+                setDelayedLayoutPiece({
+                  type: 'board',
+                  index: targetIndex // Where Worm will be AFTER swap
+                });
+                
+                // Perform swap immediately (state changes)
+                handleDragEnd(event, info, pieceData);
+                
+                // After animation completes, clear and enable layout
+                setTimeout(() => {
+                  setSwappingPiece(null);
+                  setDelayedLayoutPiece(null);
+                }, SWAP_FLY_DURATION * 1000);
+                
+                setHoveredSwapTarget(null);
+                setIsDragging(false);
+                setActiveBoardIndex(null);
+                return;
+              }
+            }
+            
             setHoveredSwapTarget(null); // Clear hover on drag end
             setIsDragging(false);
             setActiveBoardIndex(null); // Clear active on drag end
@@ -485,19 +562,33 @@ const GameContainer = () => {
         />
 
         {/* Layer 20: Piece Zoom Modal */}
-        <PieceModal
-          piece={selectedPiece}
-          imageSrc={selectedPiece ? allPieces[selectedPiece] : ''}
-          isVisible={!!(selectedPiece && selectedFrom)}
-          onClose={() => {
-            setSelectedPiece(null);
-            setSelectedFrom(null);
-          }}
-          className="z-20"
-        />
+        <AnimatePresence mode="wait">
+          {selectedPiece && selectedFrom && (
+            <PieceModal
+              key={selectedPiece}
+              piece={selectedPiece}
+              imageSrc={allPieces[selectedPiece]}
+              feedback={selectedFrom.type === 'board' ? feedback[selectedFrom.index] : null}
+              isCorrectLocked={selectedFrom.type === 'board' && correctPositions.has(selectedFrom.index)}
+              onClose={() => {
+                setSelectedPiece(null);
+                setSelectedFrom(null);
+              }}
+              className="PieceModal z-20"
+            />
+          )}
+        </AnimatePresence>
         
-        {/* Layer 30: Game Board - z-50 when dragging from board, z-30 otherwise */}
-        <div className="relative" style={{ zIndex: activeBoardIndex !== null ? 50 : 30 }}>
+        {/* Layer: Game Board - Dynamic z-index based on state */}
+        <div 
+          className="gameBoard-wrapper relative" 
+          style={{ 
+            zIndex: activeBoardIndex !== null ? 50  // Dragging from board, boost to z-50
+              : activeTrayIndex !== null ? 30      // Dragging from tray, above controls
+              : selectedPiece ? 30                 // Modal open, above controls
+              : 5                                  // Default, below controls (clickable)
+          }}
+        >
           <GameBoard
             boardSpaces={boardSpaces}
             allPieces={allPieces}
@@ -509,6 +600,7 @@ const GameContainer = () => {
             correctPositions={Array.from(correctPositions)}
             activeBoardIndex={activeBoardIndex}
             hoveredSwapTarget={hoveredSwapTarget}
+            hasSelectedPiece={selectedPiece !== null}
           />
         </div>
         
@@ -562,8 +654,8 @@ const GameContainer = () => {
                       }
                     });
                     
-                    // Set hover target if over occupied board space (for swap)
-                    if (closestIndex !== null && boardSpaces[closestIndex]) {
+                    // Set hover target if over occupied board space (for swap) and not locked
+                    if (closestIndex !== null && boardSpaces[closestIndex] && !correctPositions.has(closestIndex)) {
                       setHoveredSwapTarget({ type: 'board', index: closestIndex });
                     } else {
                       setHoveredSwapTarget(null);
@@ -574,6 +666,63 @@ const GameContainer = () => {
                     setActiveTrayIndex(index); // Mark tray position as active
                   }}
                   onDragEnd={(event, info, pieceData) => {
+                    // If hovering over valid swap target, trigger fly-fade animation
+                    if (hoveredSwapTarget && hoveredSwapTarget.type === 'board') {
+                      const targetIndex = hoveredSwapTarget.index;
+                      const boardSpaceElements = document.querySelectorAll('.board-space');
+                      const targetSpace = Array.from(boardSpaceElements).find(el => parseInt(el.dataset.dropIndex) === targetIndex);
+                      const traySpaceElements = document.querySelectorAll('.tray-space');
+                      const originSpace = traySpaceElements[index];
+                      
+                      if (targetSpace && originSpace) {
+                        const targetRect = targetSpace.getBoundingClientRect();
+                        const originRect = originSpace.getBoundingClientRect();
+                        const dx = originRect.left - targetRect.left;
+                        const dy = originRect.top - targetRect.top;
+                        
+                        // Calculate starting offset for bottom piece
+                        const isLeftSide = targetIndex >= 6 && targetIndex <= 11;
+                        const offsetX = isLeftSide ? 30 : -30;
+                        const offsetY = -10;
+                        
+                        // After swap, board piece moves to tray
+                        // But for animation, it needs to start from board position + offset
+                        const startX = -dx + offsetX; // Reverse direction + offset
+                        const startY = -dy + offsetY;
+                        
+                        // Trigger fly-fade on bottom piece (board piece being hovered)
+                        setSwappingPiece({
+                          type: 'board',
+                          index: targetIndex, // Board piece position (before swap)
+                          startX: startX,
+                          startY: startY,
+                          targetX: 0, // Fly to center of destination
+                          targetY: 0
+                        });
+                        
+                        // Mark the tray piece's destination to delay layout
+                        // After swap, tray piece will appear at targetIndex on board
+                        setDelayedLayoutPiece({
+                          type: 'board',
+                          index: targetIndex // Where tray piece will be AFTER swap
+                        });
+                        
+                        // Perform swap immediately (state changes)
+                        handleDragEnd(event, info, pieceData);
+                        
+                        // After animation completes, clear and enable layout
+                        setTimeout(() => {
+                          setSwappingPiece(null);
+                          setDelayedLayoutPiece(null);
+                        }, SWAP_FLY_DURATION * 1000);
+                        
+                        setHoveredSwapTarget(null);
+                        setIsDragging(false);
+                        setActiveTrayIndex(null);
+                        return;
+                      }
+                    }
+                    
                     setHoveredSwapTarget(null); // Clear hover on drag end
                     setIsDragging(false);
                     setActiveTrayIndex(null); // Clear active

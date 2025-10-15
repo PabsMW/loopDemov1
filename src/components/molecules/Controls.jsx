@@ -12,7 +12,7 @@ const Controls = ({
   className = ''
 }) => {
   return (
-    <div className={`absolute flex flex-col items-center gap-2 top-[176px] left-1/2 -translate-x-1/2 ${className}`}>
+    <div className={`Controls absolute flex flex-col items-center gap-2 top-[176px] left-1/2 -translate-x-1/2 ${className}`}>
       {/* Check Button */}
       {gameStatus === 'playing' && (
         <Button 

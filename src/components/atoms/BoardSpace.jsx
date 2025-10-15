@@ -9,6 +9,7 @@ const BoardSpace = ({
   isLocked = false,
   isDragging = false,
   isCorrectLocked = false,
+  hasSelectedPiece = false,
   className = ''
 }) => {
   const dropZoneRef = useRef(null);
@@ -37,15 +38,22 @@ const BoardSpace = ({
     return 'bg-[url(/images/item-default.svg)]';
   };
 
-  // Show hover ring when hovering over valid spaces (empty or occupied, not locked)
-  const canShowHoverRing = !isLocked && !isCorrectLocked;
+  // Show hover ring only when dragging or when space has a piece
+  const canShowHoverRing = !isLocked && !isCorrectLocked && (isDragging || piece);
+  
+  // Show cursor pointer when there's something to interact with
+  const showPointer = !isLocked && !isCorrectLocked && (
+    piece ||           // Has piece (can click to select)
+    isDragging ||      // Dragging over (can drop)
+    hasSelectedPiece   // Piece selected elsewhere (can place via click)
+  );
 
   return (
     <motion.div
       ref={dropZoneRef}
       onClick={handleClick}
       data-drop-index={index}
-      className={`board-space group relative flex shrink-0 justify-center items-center w-[68px] h-[68px] ${getBgImage()} bg-cover bg-center rounded-full ${!isLocked && !isCorrectLocked ? 'cursor-pointer' : ''} ${className}`}
+      className={`board-space group relative flex shrink-0 justify-center items-center w-[68px] h-[68px] ${getBgImage()} bg-cover bg-center rounded-full ${showPointer ? 'cursor-pointer' : ''} ${className}`}
       animate={feedback === 'wrong' ? {
         x: [0, -10, 10, -10, 10, 0],
         transition: { duration: 0.5 }
@@ -54,7 +62,7 @@ const BoardSpace = ({
       {/* Hover Ring - appears on hover (always, not just when dragging) */}
       {canShowHoverRing && (
         <div
-          className="hover-ringabsolute inset-0 -m-[5px] w-[78px] h-[78px] z-0 opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out pointer-events-none"
+          className="hover-ring absolute inset-0 -m-[5px] w-[78px] h-[78px] z-0 opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out pointer-events-none"
           style={{
             backgroundImage: 'url(/images/board-space-hover.svg)',
             backgroundSize: 'cover',

@@ -592,11 +592,11 @@ const GameContainer = () => {
 
   return (
     <div 
-      className="GameContainer-wrapper flex flex-col justify-start relative min-h-screen flex items-start justify-center p-8 pt-0 gap-y-2 h-dvh"
+      className="GameContainer-wrapper flex flex-col justify-start relative min-h-screen flex items-start justify-center p-0 gap-y-2 h-dvh"
       onClick={handleBackgroundClick}
     >
         {/* Sticky Nav at top */}
-        <nav className="Nav flex sticky top-0 h-[50px] bg-[#050d1c] z-50 w-full items-center px-4">
+        <nav className="Nav flex top-0 h-[50px] bg-[#050d1c] z-50 w-full items-center px-4">
           {/* toggle Testing */}          
           <button 
             onClick={() => setShowTesting(!showTesting)}

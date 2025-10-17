@@ -25,7 +25,7 @@ const Controls = ({
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.2, ease: "easeInOut" }}
           >
-            Perfect!
+            {triesRemaining === 5 ? 'Perfect!' : 'Congrats!'}
           </motion.h2>
         </div>
       )}

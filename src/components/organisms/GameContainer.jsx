@@ -70,6 +70,7 @@ const GameContainer = () => {
   const [delayedLayoutPiece, setDelayedLayoutPiece] = useState(null); // Track dragged piece to delay layout animation
   const [hasEverChecked, setHasEverChecked] = useState(false); // Track if check has ever been run (for progress arcs)
   const [checkArcs, setCheckArcs] = useState([]); // Store arc results from last check (frozen)
+  const [showTesting, setShowTesting] = useState(false); // Toggle testing buttons visibility
   
 
   // Initialize game on mount
@@ -575,8 +576,15 @@ const GameContainer = () => {
 
   // Handle clicks on background to close modal
   const handleBackgroundClick = (e) => {
-    // Only close if clicking directly on the background (not on game elements)
-    if (e.target === e.currentTarget) {
+    // Close modal if NOT clicking on game pieces, board spaces, tray, controls, or nav
+    const clickedElement = e.target;
+    const isGameElement = clickedElement.closest('.board-space') || 
+                         clickedElement.closest('.tray-space') ||
+                         clickedElement.closest('.piece-that-drags') ||
+                         clickedElement.closest('.Controls') ||
+                         clickedElement.closest('.Nav');
+    
+    if (!isGameElement && selectedPiece) {
       setSelectedPiece(null);
       setSelectedFrom(null);
     }
@@ -584,14 +592,25 @@ const GameContainer = () => {
 
   return (
     <div 
-      className="GameContainer-wrapper relative min-h-screen flex items-start justify-center p-8"
+      className="GameContainer-wrapper flex flex-col justify-start relative min-h-screen flex items-start justify-center p-8 pt-0 gap-y-2"
       onClick={handleBackgroundClick}
     >
-
+        {/* Sticky Nav at top */}
+        <nav className="Nav flex sticky top-0 h-[50px] bg-[#050d1c] z-50 w-full items-center px-4">
+          {/* toggle Testing */}          
+          <button 
+            onClick={() => setShowTesting(!showTesting)}
+          className='ToggleTesting flex items-center justify-center w-[44px] h-[44px] bg-transparent hover:bg-sky-800 rounded-full transition-colors cursor-pointer'
+          >
+            <span className="text-xs text-[#050d1c]">
+              {showTesting ? '✕' : 'ON'}
+            </span>
+          </button>
+        </nav>
       
       {/* Main content wrapper */}
       <div className="GameContainer relative flex flex-col items-center justify-center text-center space-y-8 max-w-sm w-full">
-        
+
       {/* Layer 0: Background (gradient + ring) */}
       <BackgroundLayer 
         gameStatus={gameStatus}
@@ -754,7 +773,8 @@ const GameContainer = () => {
         </motion.div>
 
         {/* TEMPORARY: Testing buttons - REMOVE AFTER TESTING */}
-        <div className="flex gap-4 mt-4">
+        {showTesting && (
+          <div className="Testing flex gap-4 mt-4">
           <button
             onClick={() => {
               setIsChecking(true);
@@ -794,6 +814,7 @@ const GameContainer = () => {
             Back to Playing
           </button>
         </div>
+        )}
       </div>
 
 

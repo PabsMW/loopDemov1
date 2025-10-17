@@ -29,6 +29,13 @@ const PieceModal = ({
     return '#F6F4EE'; // cotton-300 default
   };
 
+  // Border color based on state
+  const getBorderColor = () => {
+    if (isCorrectLocked) return 'border-teal-500'; // Correct position
+    if (feedback === 'wrong' || isWrongPersistent) return 'border-red-500'; // Wrong position
+    return 'border-cyan-900'; // Default unchecked
+  };
+
   return (
     <motion.div
       initial={{ scale: 0.75, opacity: 0 }}
@@ -38,7 +45,7 @@ const PieceModal = ({
         duration: 0.20,
         ease: "easeInOut"
       }}
-      className={`PieceModal absolute top-[80px] left-1/2 -translate-x-1/2 w-[228px] h-[228px] border-8 border-teal-300 rounded-full bg-sky-975 flex items-center justify-center pointer-events-none ${className}`}
+      className={`PieceModal absolute top-[80px] left-1/2 -translate-x-1/2 w-[228px] h-[228px] border-8 ${getBorderColor()} rounded-full bg-sky-975 flex items-center justify-center pointer-events-none ${className}`}
     >
       {/* Background color layer */}
       <div 

@@ -141,7 +141,7 @@ const GamePiece = ({
 
         onClick={onClick}
         onPointerDown={onPointerDown}
-        className={`piece-that-drags box-shadow-piece-dragging rounded-full relative cursor-grab active:cursor-grabbing ${className}`}
+        className={`piece-that-drags box-shadow-piece-dragging rounded-full relative ${isDraggable ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} ${className}`}
         whileDrag={{ scale: 1, zIndex: 9999, pointerEvents: 'none' }}
         initial={swapAnimation ? {
           x: swapAnimation.startX,

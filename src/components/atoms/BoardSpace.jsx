@@ -39,8 +39,8 @@ const BoardSpace = ({
     return 'bg-[url(/images/item-default.svg)]';
   };
 
-  // Show hover ring only when dragging or when space has a piece
-  const canShowHoverRing = !isLocked && !isCorrectLocked && (isDragging || piece);
+  // Show hover ring when dragging, space has piece, or piece selected for placement
+  const canShowHoverRing = !isLocked && !isCorrectLocked && (isDragging || piece || hasSelectedPiece);
   
   // Show cursor pointer when there's something to interact with
   const showPointer = !isLocked && !isCorrectLocked && (

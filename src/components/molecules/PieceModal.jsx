@@ -6,6 +6,7 @@ const PieceModal = ({
   imageSrc, 
   feedback = null,
   isCorrectLocked = false,
+  isWrongPersistent = false,
   onClose, 
   className = '' 
 }) => {
@@ -24,7 +25,7 @@ const PieceModal = ({
   // Background color based on state
   const getBgColor = () => {
     if (isCorrectLocked) return '#CCFBF1'; // teal-100
-    if (feedback === 'wrong') return '#FEE2E2'; // red-100
+    if (feedback === 'wrong' || isWrongPersistent) return '#FEE2E2'; // red-100 (persistent or temporary)
     return '#F6F4EE'; // cotton-300 default
   };
 

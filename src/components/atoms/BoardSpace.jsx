@@ -9,6 +9,7 @@ const BoardSpace = ({
   isLocked = false,
   isDragging = false,
   isCorrectLocked = false,
+  isWrongPersistent = false,
   hasSelectedPiece = false,
   className = ''
 }) => {
@@ -24,11 +25,11 @@ const BoardSpace = ({
   const getBgImage = () => {
     // Correct locked (starter or validated correct)
     if (isCorrectLocked) {
-      return 'bg-[url(/images/board-space-correct.svg)]';
+      return 'bg-[url(/images/board-space-correct.svg)] drop-shadow-ring-active';
     }
-    // Wrong feedback (temporary, 2 seconds)
-    if (feedback === 'wrong') {
-      return 'bg-[url(/images/board-space-wrong.svg)]';
+    // Wrong state (temporary during check or persistent until moved)
+    if (feedback === 'wrong' || isWrongPersistent) {
+      return 'bg-[url(/images/board-space-wrong.svg)] drop-shadow-ring-wrong';
     }
     // Drop zone state during drag (highlight background)
     if (isDragging && !isLocked && !isCorrectLocked) {
@@ -54,10 +55,6 @@ const BoardSpace = ({
       onClick={handleClick}
       data-drop-index={index}
       className={`board-space group relative flex shrink-0 justify-center items-center w-[68px] h-[68px] ${getBgImage()} bg-cover bg-center rounded-full ${showPointer ? 'cursor-pointer' : ''} ${className}`}
-      animate={feedback === 'wrong' ? {
-        x: [0, -10, 10, -10, 10, 0],
-        transition: { duration: 0.5 }
-      } : {}}
     >
       {/* Hover Ring - appears on hover (always, not just when dragging) */}
       {canShowHoverRing && (

@@ -27,6 +27,7 @@ const GamePiece = ({
   fromIndex,
   feedback = null, // 'correct' | 'wrong' | null
   isCorrectLocked = false, // For starter piece and permanently correct pieces
+  isWrongPersistent = false, // Piece is wrong and persists until moved
   swapOffset = { x: 0, y: 0 }, // Offset for swap preview animation
   swapAnimation = null, // Fly-fade animation during swap
   delayLayout = false, // Delay layout animation for dragged piece during swap
@@ -39,13 +40,17 @@ const GamePiece = ({
   const [isHovered, setIsHovered] = useState(false);
   const [isDraggingSelf, setIsDraggingSelf] = useState(false);
   
-  // Background color based on feedback or correct locked state
+  // Background color based on feedback or correct/wrong locked state
   const getBgColor = () => {
     // Correct locked (starter or validated correct) - always teal
     if (isCorrectLocked) return 'bg-teal-100';
     // Temporary feedback during check
     if (feedback === 'correct') return 'bg-teal-100';
-    if (feedback === 'wrong') return 'bg-red-100';
+    // Wrong state (persistent until moved or temporary during check)
+    if (feedback === 'wrong' || isWrongPersistent) {
+      console.log(`Piece ${id} at ${fromIndex}: feedback=${feedback}, isWrongPersistent=${isWrongPersistent}`);
+      return 'bg-red-100';
+    }
     return 'bg-cotton-300'; // Default
   };
 
@@ -166,8 +171,8 @@ const GamePiece = ({
             height: size,
             backgroundColor: isCorrectLocked || feedback === 'correct' 
               ? '#CCFBF1'  // teal-100
-              : feedback === 'wrong' 
-              ? '#FEE2E2'  // red-100
+              : feedback === 'wrong' || isWrongPersistent
+              ? '#FEE2E2'  // red-100 (temporary or persistent)
               : '#F6F4EE'  // cotton-300
           }}
           transition={{ 

@@ -10,6 +10,7 @@ const GameBoard = ({
   isLocked,
   isDragging = false,
   correctPositions = [],
+  wrongPositions = [],
   activeBoardIndex = null,
   hoveredSwapTarget = null,
   hasSelectedPiece = false,
@@ -63,6 +64,7 @@ const GameBoard = ({
               isLocked={isLocked}
               isDragging={isDragging}
               isCorrectLocked={correctPositions.includes(index)}
+              isWrongPersistent={wrongPositions.includes(index)}
               hasSelectedPiece={hasSelectedPiece}
             />
           </div>

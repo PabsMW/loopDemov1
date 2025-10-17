@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 
-const TryIndicator = ({ triesRemaining, totalTries = 5, hasChanges = true, className = '' }) => {
+const TryIndicator = ({ triesRemaining, totalTries = 5, hasChanges = true, skipAnimation = false, className = '' }) => {
   // Hide when inactive (no changes)
   if (!hasChanges) return null;
 
@@ -16,9 +16,9 @@ const TryIndicator = ({ triesRemaining, totalTries = 5, hasChanges = true, class
         {Array.from({ length: totalTries }, (_, i) => (
           <motion.div
             key={i}
-            initial={{ scale: 0 }}
+            initial={skipAnimation ? false : { scale: 0 }}
             animate={{ scale: 1 }}
-            transition={{ delay: i * 0.1 }}
+            transition={skipAnimation ? {} : { delay: i * 0.1 }}
             className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
               i < triesRemaining 
                 ? 'bg-teal-400 shadow-lg' 

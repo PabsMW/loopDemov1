@@ -6,7 +6,7 @@ import GamePiece from '../atoms/GamePiece';
 import PieceModal from '../molecules/PieceModal';
 import BackgroundLayer from '../molecules/BackgroundLayer';
 import Controls from '../molecules/Controls';
-import { SWAP_FLY_DURATION } from '../../constants/animations';
+import { SWAP_FLY_DURATION, CHECK_PROGRESS_DURATION, CHECK_SEGMENT_DURATION } from '../../constants/animations';
 
 const GameContainer = () => {
   // Game data - single source of truth
@@ -60,6 +60,7 @@ const GameContainer = () => {
   const [isChecking, setIsChecking] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [correctPositions, setCorrectPositions] = useState(new Set([starterPiece.position])); // Positions that are correct and locked
+  const [wrongPositions, setWrongPositions] = useState(new Set()); // Positions that are wrong (persist until moved)
   const [hasChanges, setHasChanges] = useState(false); // Track if moves have been made since last check
   const [lastCheckedBoard, setLastCheckedBoard] = useState(null); // Store board state after each check
   const [activeBoardIndex, setActiveBoardIndex] = useState(null); // Track which board position is being dragged
@@ -67,6 +68,8 @@ const GameContainer = () => {
   const [hoveredSwapTarget, setHoveredSwapTarget] = useState(null); // Track hover target during drag for swap preview
   const [swappingPiece, setSwappingPiece] = useState(null); // Track piece flying/fading during swap
   const [delayedLayoutPiece, setDelayedLayoutPiece] = useState(null); // Track dragged piece to delay layout animation
+  const [hasEverChecked, setHasEverChecked] = useState(false); // Track if check has ever been run (for progress arcs)
+  const [checkArcs, setCheckArcs] = useState([]); // Store arc results from last check (frozen)
   
 
   // Initialize game on mount
@@ -101,6 +104,7 @@ const GameContainer = () => {
     setFeedback({});
     setIsChecking(false);
     setCorrectPositions(new Set([starterPiece.position])); // Reset to just starter
+    setWrongPositions(new Set()); // Clear wrong positions on reset
     setHasChanges(false); // No changes at start
     setLastCheckedBoard([...initialBoard]); // Set initial board as baseline for comparison
   };
@@ -148,11 +152,30 @@ const GameContainer = () => {
 
     if (!pieceToPlace || !fromLocation) return;
 
+    // Can't move locked pieces from board
+    if (fromLocation.type === 'board' && correctPositions.has(fromLocation.index)) {
+      console.log('Cannot move locked piece');
+      // Close zoom but don't move piece
+      setSelectedPiece(null);
+      setSelectedFrom(null);
+      return;
+    }
+
     // Can't place on correct locked positions
     if (correctPositions.has(boardIndex)) {
       console.log('Cannot place on correct locked position');
       return;
     }
+
+    // Clear wrong state from involved positions when piece is moved
+    setWrongPositions(prev => {
+      const updated = new Set(prev);
+      if (fromLocation.type === 'board') {
+        updated.delete(fromLocation.index); // Clear source position
+      }
+      updated.delete(boardIndex); // Clear target position
+      return updated;
+    });
 
     const targetPiece = boardSpaces[boardIndex];
 
@@ -319,24 +342,49 @@ const GameContainer = () => {
     setHasChanges(false);
     
     setIsChecking(true);
-    const newFeedback = {};
-    const newCorrectPositions = new Set(correctPositions);
+    setHasEverChecked(true); // Mark that check has been run
     let allCorrect = true;
 
+    // Calculate arc states (connections between adjacent pieces)
+    const arcSegments = boardSpaces.map((piece, index) => {
+      const nextIndex = (index + 1) % 12; // Wrap around for last arc
+      const currentCorrect = piece === correctOrder[index];
+      const nextCorrect = boardSpaces[nextIndex] === correctOrder[nextIndex];
+      
+      return {
+        isCorrect: currentCorrect && nextCorrect, // Both must be correct for teal arc
+        index
+      };
+    });
+    
+    setCheckArcs(arcSegments); // Freeze arc results for this check
+
+    // Check correctness and schedule individual piece feedback with cascade
     boardSpaces.forEach((piece, index) => {
-      if (piece === correctOrder[index]) {
-        newFeedback[index] = 'correct';
-        newCorrectPositions.add(index); // Mark as permanently correct
-      } else {
-        newFeedback[index] = 'wrong';
+      const isCorrect = piece === correctOrder[index];
+      
+      if (!isCorrect) {
         allCorrect = false;
       }
+      
+      // Schedule state changes for this piece after its arc completes
+      setTimeout(() => {
+        // Set temporary feedback
+        setFeedback(prev => ({
+          ...prev,
+          [index]: isCorrect ? 'correct' : 'wrong'
+        }));
+        
+        // Set persistent state
+        if (isCorrect) {
+          setCorrectPositions(prev => new Set([...prev, index]));
+        } else {
+          setWrongPositions(prev => new Set([...prev, index]));
+        }
+      }, (index + 1) * CHECK_SEGMENT_DURATION * 1000);
     });
 
-    setFeedback(newFeedback);
-    setCorrectPositions(newCorrectPositions); // Lock correct pieces
-
-    // Animate feedback
+    // Clear feedback and finish check after all animations complete
     setTimeout(() => {
       setFeedback({});
       setIsChecking(false);
@@ -350,12 +398,15 @@ const GameContainer = () => {
           setGameStatus('failed');
         }
       }
-    }, 2000);
+    }, CHECK_PROGRESS_DURATION * 1000);
   };
 
   // Create board piece render function for GameBoard to use
   const createBoardPiece = (piece, index, swapOffset) => {
     const isCorrectLocked = correctPositions.has(index);
+    const isWrongPersistent = wrongPositions.has(index);
+    
+    console.log(`createBoardPiece: index=${index}, piece=${piece}, isWrongPersistent=${isWrongPersistent}, wrongPositions has ${wrongPositions.size} items`);
     
     // Check if this piece is flying/fading during swap
     const isSwapping = swappingPiece?.type === 'board' && swappingPiece.index === index;
@@ -384,6 +435,7 @@ const GameContainer = () => {
         fromIndex={index}
         feedback={feedback[index]}
         isCorrectLocked={isCorrectLocked}
+        isWrongPersistent={isWrongPersistent}
         swapOffset={swapOffset}
         swapAnimation={swapAnimation}
         delayLayout={shouldDelayLayout}
@@ -490,8 +542,13 @@ const GameContainer = () => {
           onClick={(e) => {
             e.stopPropagation(); // Prevent BoardSpace click
             
-            // Correct locked pieces can't be selected or moved
-            if (isCorrectLocked) return;
+            // Correct locked pieces can be clicked for zoom, but not moved
+            if (isCorrectLocked) {
+              // Select for zoom (opens PieceModal)
+              setSelectedPiece(piece);
+              setSelectedFrom({ type: 'board', index });
+              return; // Can't place or swap locked pieces
+            }
             
             // If clicking the same selected piece, deselect it
             if (selectedPiece === piece && selectedFrom?.type === 'board' && selectedFrom?.index === index) {
@@ -527,7 +584,7 @@ const GameContainer = () => {
 
   return (
     <div 
-      className="GameContainer-wrapper relative min-h-screen flex items-center justify-center p-8"
+      className="GameContainer-wrapper relative min-h-screen flex items-start justify-center p-8"
       onClick={handleBackgroundClick}
     >
 
@@ -535,21 +592,15 @@ const GameContainer = () => {
       {/* Main content wrapper */}
       <div className="GameContainer relative flex flex-col items-center justify-center text-center space-y-8 max-w-sm w-full">
         
-        {/* Layer 0: Background (gradient + ring) */}
-        <BackgroundLayer gameStatus={gameStatus} />
+      {/* Layer 0: Background (gradient + ring) */}
+      <BackgroundLayer 
+        gameStatus={gameStatus}
+        isChecking={isChecking}
+        hasEverChecked={hasEverChecked}
+        checkArcs={checkArcs}
+      />
         
-        {/* Win/Fail Message */}
-        {gameStatus !== 'playing' && (
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            className={`text-3xl font-bold mb-4 ${gameStatus === 'won' ? 'text-green-400' : 'text-red-400'}`}
-          >
-            {gameStatus === 'won' ? '🎉 You Win!' : '😞 Failed - Try Again!'}
-          </motion.div>
-        )}
-
-        {/* Layer 10: Controls */}
+        {/* Layer 10: Controls (includes Win/Fail messages) */}
         <Controls 
           gameStatus={gameStatus}
           hasChanges={hasChanges}
@@ -557,7 +608,6 @@ const GameContainer = () => {
           totalTries={5}
           isChecking={isChecking}
           onCheck={handleCheck}
-          onReset={initializeGame}
           className="z-10"
         />
 
@@ -570,6 +620,7 @@ const GameContainer = () => {
               imageSrc={allPieces[selectedPiece]}
               feedback={selectedFrom.type === 'board' ? feedback[selectedFrom.index] : null}
               isCorrectLocked={selectedFrom.type === 'board' && correctPositions.has(selectedFrom.index)}
+              isWrongPersistent={selectedFrom.type === 'board' && wrongPositions.has(selectedFrom.index)}
               onClose={() => {
                 setSelectedPiece(null);
                 setSelectedFrom(null);
@@ -598,6 +649,7 @@ const GameContainer = () => {
             isLocked={gameStatus !== 'playing'}
             isDragging={isDragging}
             correctPositions={Array.from(correctPositions)}
+            wrongPositions={Array.from(wrongPositions)}
             activeBoardIndex={activeBoardIndex}
             hoveredSwapTarget={hoveredSwapTarget}
             hasSelectedPiece={selectedPiece !== null}
@@ -613,12 +665,27 @@ const GameContainer = () => {
           style={{ zIndex: activeTrayIndex !== null ? 50 : 40 }}
         >
  
-          {traySpaces.map((piece, index) => (
-            <TraySpace
-              key={`tray-space-${index}`}
-              index={index}
-              style={{ zIndex: activeTrayIndex === index ? 50 : 0 }}
-              piece={piece ? (
+          {traySpaces.map((piece, index) => {
+            // Calculate how many empty slots to remove from end
+            const lockedCount = correctPositions.size - 1; // Exclude starter
+            
+            // Count empty slots from end to this index
+            let emptyFromEnd = 0;
+            for (let i = traySpaces.length - 1; i > index; i--) {
+              if (!traySpaces[i]) emptyFromEnd++;
+            }
+            
+            // Hide this slot if it's empty and within removal range
+            const shouldHide = !piece && emptyFromEnd < lockedCount;
+            
+            if (shouldHide) return null;
+            
+            return (
+              <TraySpace
+                key={`tray-space-${index}`}
+                index={index}
+                style={{ zIndex: activeTrayIndex === index ? 50 : 0 }}
+                piece={piece ? (
                 <GamePiece
                   key={`tray-${piece}`}
                   id={piece}
@@ -666,63 +733,8 @@ const GameContainer = () => {
                     setActiveTrayIndex(index); // Mark tray position as active
                   }}
                   onDragEnd={(event, info, pieceData) => {
-                    // If hovering over valid swap target, trigger fly-fade animation
-                    if (hoveredSwapTarget && hoveredSwapTarget.type === 'board') {
-                      const targetIndex = hoveredSwapTarget.index;
-                      const boardSpaceElements = document.querySelectorAll('.board-space');
-                      const targetSpace = Array.from(boardSpaceElements).find(el => parseInt(el.dataset.dropIndex) === targetIndex);
-                      const traySpaceElements = document.querySelectorAll('.tray-space');
-                      const originSpace = traySpaceElements[index];
-                      
-                      if (targetSpace && originSpace) {
-                        const targetRect = targetSpace.getBoundingClientRect();
-                        const originRect = originSpace.getBoundingClientRect();
-                        const dx = originRect.left - targetRect.left;
-                        const dy = originRect.top - targetRect.top;
-                        
-                        // Calculate starting offset for bottom piece
-                        const isLeftSide = targetIndex >= 6 && targetIndex <= 11;
-                        const offsetX = isLeftSide ? 30 : -30;
-                        const offsetY = -10;
-                        
-                        // After swap, board piece moves to tray
-                        // But for animation, it needs to start from board position + offset
-                        const startX = -dx + offsetX; // Reverse direction + offset
-                        const startY = -dy + offsetY;
-                        
-                        // Trigger fly-fade on bottom piece (board piece being hovered)
-                        setSwappingPiece({
-                          type: 'board',
-                          index: targetIndex, // Board piece position (before swap)
-                          startX: startX,
-                          startY: startY,
-                          targetX: 0, // Fly to center of destination
-                          targetY: 0
-                        });
-                        
-                        // Mark the tray piece's destination to delay layout
-                        // After swap, tray piece will appear at targetIndex on board
-                        setDelayedLayoutPiece({
-                          type: 'board',
-                          index: targetIndex // Where tray piece will be AFTER swap
-                        });
-                        
-                        // Perform swap immediately (state changes)
-                        handleDragEnd(event, info, pieceData);
-                        
-                        // After animation completes, clear and enable layout
-                        setTimeout(() => {
-                          setSwappingPiece(null);
-                          setDelayedLayoutPiece(null);
-                        }, SWAP_FLY_DURATION * 1000);
-                        
-                        setHoveredSwapTarget(null);
-                        setIsDragging(false);
-                        setActiveTrayIndex(null);
-                        return;
-                      }
-                    }
-                    
+                    // For tray → board swaps, just do simple swap (no fly-fade animation)
+                    // Board piece moves to tray (different container), animation is complex
                     setHoveredSwapTarget(null); // Clear hover on drag end
                     setIsDragging(false);
                     setActiveTrayIndex(null); // Clear active
@@ -737,8 +749,51 @@ const GameContainer = () => {
               isEmpty={!piece}
               onClick={() => handleTraySpaceClick(index)}
             />
-          ))}
+          );
+        })}
         </motion.div>
+
+        {/* TEMPORARY: Testing buttons - REMOVE AFTER TESTING */}
+        <div className="flex gap-4 mt-4">
+          <button
+            onClick={() => {
+              setIsChecking(true);
+              setHasEverChecked(true);
+              // Set mock check arcs (all teal for win)
+              const mockArcs = Array.from({ length: 12 }, (_, i) => ({ isCorrect: true, index: i }));
+              setCheckArcs(mockArcs);
+              setTimeout(() => {
+                setIsChecking(false);
+                setGameStatus('won');
+              }, CHECK_PROGRESS_DURATION * 1000);
+            }}
+            className="px-4 py-2 bg-green-500 text-white rounded font-comfortaa"
+          >
+            Test Win
+          </button>
+          <button
+            onClick={() => {
+              setIsChecking(true);
+              setHasEverChecked(true);
+              // Set mock check arcs (all red for fail)
+              const mockArcs = Array.from({ length: 12 }, (_, i) => ({ isCorrect: false, index: i }));
+              setCheckArcs(mockArcs);
+              setTimeout(() => {
+                setIsChecking(false);
+                setGameStatus('failed');
+              }, CHECK_PROGRESS_DURATION * 1000);
+            }}
+            className="px-4 py-2 bg-red-500 text-white rounded font-comfortaa"
+          >
+            Test Fail
+          </button>
+          <button
+            onClick={() => setGameStatus('playing')}
+            className="px-4 py-2 bg-blue-500 text-white rounded font-comfortaa"
+          >
+            Back to Playing
+          </button>
+        </div>
       </div>
 
 

@@ -57,6 +57,14 @@
   .drop-shadow-ring-active {
     filter: drop-shadow(0 0 12px #0E7490);
   }
+  .drop-shadow-checkmark {
+    filter: drop-shadow(0 0 17px #14B8A6);
+  }
+  
+  .drop-shadow-ring-wrong {
+    filter: drop-shadow(0 0 12px #9F1239);
+  }
+
   .box-shadow-piece-dragging {
     box-shadow: 0 14px 8px 0 rgba(2, 6, 23, 0.05), 0 6px 6px 0 rgba(2, 6, 23, 0.09), 0 2px 3px 0 rgba(2, 6, 23, 0.10);
   }

@@ -81,8 +81,9 @@
 body {
   margin: 0;
   padding: 0;
+  background-color: #020617;
   
 }
-body,#root {
+html,body,#root {
   overscroll-behavior: none;
 }

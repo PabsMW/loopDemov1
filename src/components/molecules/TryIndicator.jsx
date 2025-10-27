@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const TryIndicator = ({ triesRemaining, totalTries = 5, hasChanges = true, skipAnimation = false, className = '' }) => {
   // Hide when inactive (no changes)
-  if (!hasChanges) return null;
+  //if (!hasChanges) return null;
 
   return (
     <AnimatePresence>
@@ -10,7 +10,7 @@ const TryIndicator = ({ triesRemaining, totalTries = 5, hasChanges = true, skipA
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.3 }}
+        transition={{ duration: .3 }}// aimation is set off by duration 0
         className={`flex gap-1 ${className}`}
       >
         {Array.from({ length: totalTries }, (_, i) => (
@@ -18,10 +18,12 @@ const TryIndicator = ({ triesRemaining, totalTries = 5, hasChanges = true, skipA
             key={i}
             initial={skipAnimation ? false : { scale: 0 }}
             animate={{ scale: 1 }}
-            transition={skipAnimation ? {} : { delay: i * 0.1 }}
+//            transition={skipAnimation ? {} : { delay: i * 0.1 }}
+            transition={{ duration: 0 }}// aimation is set off by duration 0
             className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
               i < triesRemaining 
-                ? 'bg-teal-400 shadow-lg' 
+                //? 'bg-teal-400 shadow-lg' 
+                ? `${hasChanges ? 'bg-teal-400': 'bg-teal-600'} shadow-lg` 
                 : 'bg-cyan-900 '
             }`}
           />

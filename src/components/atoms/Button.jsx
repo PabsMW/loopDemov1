@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 
 const Button = ({ children, onClick, disabled = false, tooltipText = '' }) => {
@@ -17,11 +17,11 @@ const Button = ({ children, onClick, disabled = false, tooltipText = '' }) => {
     <div className="relative inline-block">
       <motion.button
         onClick={handleClick}
-        disabled={disabled}
+        //disabled={disabled}
         className={`
           px-10 py-3 pt-3.5 font-comfortaa font-bold rounded-full text-lg leading-none border shadow-lg 
           ${disabled 
-            ? 'bg-sky-950 text-sky-900 border-sky-950 cursor-not-allowed' 
+            ? 'bg-sky-950 border-teal-600 text-teal-600 cursor-not-allowed' 
             : 'bg-sky-975 text-teal-300 border-teal-300 hover:bg-teal-400 hover:text-sky-975 hover:shadow-xl'
           }
           transition-all duration-500
@@ -39,16 +39,18 @@ const Button = ({ children, onClick, disabled = false, tooltipText = '' }) => {
       </motion.button>
       
       {/* Tooltip */}
-      {showTooltip && disabled && tooltipText && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0 }}
-          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1 bg-sky-950 text-teal-300 text-sm rounded-lg whitespace-nowrap font-comfortaa"
-        >
-          {tooltipText}
-        </motion.div>
-      )}
+      <AnimatePresence>
+        {showTooltip && disabled && tooltipText && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 1.2 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1 bg-sky-950 text-teal-300 text-sm rounded-lg whitespace-nowrap font-comfortaa"
+          >
+            {tooltipText}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

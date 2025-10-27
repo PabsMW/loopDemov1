@@ -379,7 +379,8 @@ const GameContainer = () => {
         // Set persistent state
         if (isCorrect) {
           setCorrectPositions(prev => new Set([...prev, index]));
-        } else {
+        } else if (piece) {
+          // Only add to wrongPositions if space has a piece (not empty)
           setWrongPositions(prev => new Set([...prev, index]));
         }
       }, (index + 1) * CHECK_SEGMENT_DURATION * 1000);

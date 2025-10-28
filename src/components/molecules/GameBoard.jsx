@@ -49,7 +49,7 @@ const GameBoard = ({
         return (
           <div
             key={index}
-            className="absolute"
+            className="absolute hover:z-100"
             style={{ 
               left: `${x}px`, 
               top: `${y}px`,

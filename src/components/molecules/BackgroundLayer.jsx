@@ -6,6 +6,7 @@ const BackgroundLayer = ({
   isChecking = false,
   hasEverChecked = false,
   checkArcs = [],
+  previousCheckArcs = [],
   className = '' 
 }) => {
   return (
@@ -22,6 +23,7 @@ const BackgroundLayer = ({
           {/* Animated progress ring */}
           <CheckProgressRing 
             segments={checkArcs}
+            previousSegments={previousCheckArcs}
             isChecking={isChecking}
             hasEverChecked={hasEverChecked}
           />

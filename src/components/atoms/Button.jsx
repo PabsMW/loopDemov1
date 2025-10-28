@@ -1,13 +1,17 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
+import Tooltip from './Tooltip';
 
 const Button = ({ children, onClick, disabled = false, tooltipText = '' }) => {
   const [showTooltip, setShowTooltip] = useState(false);
+  const [isShaking, setIsShaking] = useState(false);
 
   const handleClick = (e) => {
     if (disabled) {
       setShowTooltip(true);
+      setIsShaking(true);
       setTimeout(() => setShowTooltip(false), 2000);
+      setTimeout(() => setIsShaking(false), 500);
       return;
     }
     onClick(e);
@@ -24,15 +28,23 @@ const Button = ({ children, onClick, disabled = false, tooltipText = '' }) => {
             ? 'bg-sky-950 border-teal-600 text-teal-600 cursor-not-allowed' 
             : 'bg-sky-975 text-teal-300 border-teal-300 hover:bg-teal-400 hover:text-sky-975 hover:shadow-xl'
           }
-          transition-all duration-500
+          transition-colors duration-500
         `}
         whileTap={!disabled ? { 
-          rotate: 720, // 2 full rotations
-          scale: 1.2,
+          scale: 1.05,
           transition: {
-            duration: 0.6,
+            duration: 0.2,
             ease: "easeInOut"
           }
+        } : {}}
+        animate={isShaking ? {
+          x: [0, -10, 10, -10, 10, 0]
+        } : {
+          x: 0
+        }}
+        transition={isShaking ? {
+          duration: 0.5,
+          ease: "easeInOut"
         } : {}}
       >
         {children}
@@ -40,16 +52,7 @@ const Button = ({ children, onClick, disabled = false, tooltipText = '' }) => {
       
       {/* Tooltip */}
       <AnimatePresence>
-        {showTooltip && disabled && tooltipText && (
-          <motion.div
-            initial={{ opacity: 0, y: 10, scale: 1.2 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1 bg-sky-950 text-teal-300 text-sm rounded-lg whitespace-nowrap font-comfortaa"
-          >
-            {tooltipText}
-          </motion.div>
-        )}
+        <Tooltip text={tooltipText} show={showTooltip && disabled} />
       </AnimatePresence>
     </div>
   );

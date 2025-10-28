@@ -4,8 +4,8 @@ export const RING_FADE_DURATION = 0.2; // seconds - ring appear/disappear
 export const OPACITY_FADE_DURATION = 0.25; // seconds - general opacity fades
 
 // Check animation timings
-export const CHECK_PROGRESS_DURATION = 2; // seconds - total ring animation
-export const CHECK_SEGMENT_DURATION = CHECK_PROGRESS_DURATION / 12; // seconds - per segment (~0.167s)
+export const CHECK_PROGRESS_DURATION = 3; // seconds - total ring animation (12 × 0.25s)
+export const CHECK_SEGMENT_DURATION = CHECK_PROGRESS_DURATION / 12; // seconds - per segment (0.25s)
 export const CHECK_PIECE_TRANSITION_DELAY = 0; // seconds - extra delay before piece color changes
 export const CHECK_PIECE_TRANSITION_DURATION = 0.3; // seconds - how long color fade takes
 

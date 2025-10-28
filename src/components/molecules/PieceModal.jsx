@@ -25,7 +25,7 @@ const PieceModal = ({
   // Background color based on state
   const getBgColor = () => {
     if (isCorrectLocked) return '#CCFBF1'; // teal-100
-    if (feedback === 'wrong' || isWrongPersistent) return '#FEE2E2'; // red-100 (persistent or temporary)
+    if (feedback === 'wrong') return '#FEE2E2'; // red-100 (only during check)
     return '#F6F4EE'; // cotton-300 default
   };
 

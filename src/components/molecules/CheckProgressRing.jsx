@@ -3,6 +3,7 @@ import { CHECK_PROGRESS_DURATION } from '../../constants/animations';
 
 const CheckProgressRing = ({ 
   segments = [],
+  previousSegments = [],
   isChecking,
   hasEverChecked = false,
   className = '' 
@@ -44,34 +45,56 @@ const CheckProgressRing = ({
       className={`absolute inset-0 pointer-events-none z-10 ${className}`}
       style={{ top: 0, left: 0 }}
     >
-      {segments.map((segment, index) => (
-        <motion.path
-          key={index}
-          d={createArcPath(index)}
-          fill="none"
-          stroke={segment.isCorrect ? "#5EEAD4" : "#EF4444"}
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          strokeDasharray={arcLength}
-          initial={{ strokeDashoffset: arcLength, opacity: 1 }}
-          animate={isChecking ? {
-            strokeDashoffset: 0,
-            opacity: 1
-          } : {
-            strokeDashoffset: 0,
-            opacity: segment.isCorrect ? 1 : 0  // Keep teal, fade red
-          }}
-          transition={isChecking ? { 
-            strokeDashoffset: {
-              delay: index * segmentDuration,
-              duration: segmentDuration,
-              ease: "linear"
-            }
-          } : {
-            opacity: { duration: 1 }
-          }}
-        />
-      ))}
+      {segments.map((segment, index) => {
+        // Check if this arc was already correct in previous check
+        const previousArc = previousSegments.find(s => s.index === index);
+        const wasAlreadyCorrect = previousArc && previousArc.isCorrect && segment.isCorrect;
+        
+        // Count how many non-teal arcs come before this one (for adjusted delay)
+        const nonTealArcsBefore = segments
+          .slice(0, index)
+          .filter((s, i) => {
+            const prevArc = previousSegments.find(ps => ps.index === i);
+            const alreadyCorrect = prevArc && prevArc.isCorrect && s.isCorrect;
+            return !alreadyCorrect;  // Count only arcs that need animation
+          }).length;
+        
+        const adjustedDelay = wasAlreadyCorrect ? 0 : (nonTealArcsBefore * segmentDuration);
+        
+        return (
+          <motion.path
+            key={index}
+            d={createArcPath(index)}
+            fill="none"
+            stroke={segment.isCorrect ? "#5EEAD4" : "#EF4444"}
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            strokeDasharray={arcLength}
+            initial={{ 
+              strokeDashoffset: wasAlreadyCorrect ? 0 : arcLength,
+              opacity: wasAlreadyCorrect ? 1 : 0 
+            }}
+            animate={isChecking ? {
+              strokeDashoffset: 0,
+              opacity: 1
+            } : {
+              strokeDashoffset: segment.isCorrect ? 0 : arcLength,
+              opacity: segment.isCorrect ? 1 : 0
+            }}
+            transition={isChecking ? { 
+              strokeDashoffset: {
+                delay: adjustedDelay,
+                duration: wasAlreadyCorrect ? 0 : segmentDuration,
+                ease: "linear"
+              },
+              opacity: { duration: 0.2 }
+            } : {
+              strokeDashoffset: { duration: 0 },
+              opacity: { duration: 0.5 }
+            }}
+          />
+        );
+      })}
     </svg>
   );
 };

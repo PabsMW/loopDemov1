@@ -70,6 +70,7 @@ const GameContainer = () => {
   const [delayedLayoutPiece, setDelayedLayoutPiece] = useState(null); // Track dragged piece to delay layout animation
   const [hasEverChecked, setHasEverChecked] = useState(false); // Track if check has ever been run (for progress arcs)
   const [checkArcs, setCheckArcs] = useState([]); // Store arc results from last check (frozen)
+  const [previousCheckArcs, setPreviousCheckArcs] = useState([]); // Track arcs from previous check to skip re-animation
   const [showTesting, setShowTesting] = useState(false); // Toggle testing buttons visibility
   
 
@@ -344,6 +345,7 @@ const GameContainer = () => {
     
     setIsChecking(true);
     setHasEverChecked(true); // Mark that check has been run
+    setWrongPositions(new Set()); // Clear persistent wrong state at start of check
     let allCorrect = true;
 
     // Calculate arc states (connections between adjacent pieces)
@@ -358,6 +360,7 @@ const GameContainer = () => {
       };
     });
     
+    setPreviousCheckArcs(checkArcs); // Store previous for comparison
     setCheckArcs(arcSegments); // Freeze arc results for this check
 
     // Check correctness and schedule individual piece feedback with cascade
@@ -597,7 +600,7 @@ const GameContainer = () => {
       onClick={handleBackgroundClick}
     >
         {/* Sticky Nav at top */}
-        <nav className="Nav flex top-0 h-[50px] bg-[#050d1c] z-50 w-full items-center px-4">
+        <nav className="Nav flex top-0 h-[50px] bg-[#050d1c] z-0 w-full items-center px-4">
           {/* toggle Testing */}          
           <button 
             onClick={() => setShowTesting(!showTesting)}
@@ -618,6 +621,7 @@ const GameContainer = () => {
         isChecking={isChecking}
         hasEverChecked={hasEverChecked}
         checkArcs={checkArcs}
+        previousCheckArcs={previousCheckArcs}
       />
         
         {/* Layer 10: Controls (includes Win/Fail messages) */}

@@ -1,5 +1,6 @@
-import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useRef } from 'react';
+import Tooltip from '../atoms/Tooltip';
 import { 
   SWAP_FLY_DURATION, 
   RING_FADE_DURATION, 
@@ -40,6 +41,10 @@ const GamePiece = ({
   const [isHovered, setIsHovered] = useState(false);
   const [isDraggingSelf, setIsDraggingSelf] = useState(false);
   
+  // Tooltip for locked pieces
+  const [showLockedTooltip, setShowLockedTooltip] = useState(false);
+  const longPressTimerRef = useRef(null);
+  
   // Background color based on feedback or correct/wrong locked state
   const getBgColor = () => {
     // Correct locked (starter or validated correct) - always teal
@@ -58,6 +63,39 @@ const GamePiece = ({
   const activeRingSvg = fromType === 'board' 
     ? '/images/piece-active-board.svg' 
     : '/images/piece-active-tray.svg';
+  
+  // Handle pointer down for locked pieces
+  const handlePointerDownInternal = (e) => {
+    // If locked piece - start timer for long press detection
+    if (isCorrectLocked && !isDraggable) {
+      // Capture boardSpace reference BEFORE setTimeout
+      const boardSpace = e.currentTarget?.closest('.board-space');
+      
+      // Start timer - shake after 0.5 seconds (drag attempt)
+      longPressTimerRef.current = setTimeout(() => {
+        setShowLockedTooltip(true);
+        
+        // Trigger shake on parent BoardSpace
+        if (boardSpace) {
+          boardSpace.classList.add('shake-animation');
+          setTimeout(() => boardSpace.classList.remove('shake-animation'), 500);
+        }
+        
+        setTimeout(() => setShowLockedTooltip(false), 2000);
+      }, 500);
+      return;
+    }
+    
+    // Call original handler if provided
+    if (onPointerDown) onPointerDown(e);
+  };
+  
+  // Handle pointer up/leave - cancel long press timer
+  const handlePointerUpInternal = (e) => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+    }
+  };
 
   const ringSize = fromType === 'board' ? 68 : 56;
   const showHoverRing = isHovered && !isDraggingSelf && fromType === 'tray';
@@ -140,7 +178,9 @@ const GamePiece = ({
         }}
 
         onClick={onClick}
-        onPointerDown={onPointerDown}
+        onPointerDown={handlePointerDownInternal}
+        onPointerUp={handlePointerUpInternal}
+        onPointerLeave={handlePointerUpInternal}
         className={`piece-that-drags box-shadow-piece-dragging rounded-full relative ${isDraggable ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} ${className}`}
         whileDrag={{ scale: 1, zIndex: 9999, pointerEvents: 'none' }}
         initial={swapAnimation ? {
@@ -171,9 +211,9 @@ const GamePiece = ({
             height: size,
             backgroundColor: isCorrectLocked || feedback === 'correct' 
               ? '#CCFBF1'  // teal-100
-              : feedback === 'wrong' || isWrongPersistent
-              ? '#FEE2E2'  // red-100 (temporary or persistent)
-              : '#F6F4EE'  // cotton-300
+              : feedback === 'wrong'
+              ? '#FEE2E2'  // red-100 (only during check animation)
+              : '#F6F4EE'  // cotton-300 (default + wrong after check)
           }}
           transition={{ 
             width: { type: "spring", ...SIZE_SPRING },
@@ -199,6 +239,13 @@ const GamePiece = ({
           style={{ zIndex: 1 }}
         />
       </motion.div>
+      
+      {/* Locked piece tooltip */}
+      {fromType === 'board' && (
+        <AnimatePresence>
+          <Tooltip text=" 🔒 Correct Place" show={showLockedTooltip && isCorrectLocked} />
+        </AnimatePresence>
+      )}
     </div>
   );
 };

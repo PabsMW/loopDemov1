@@ -72,11 +72,19 @@ const GameContainer = () => {
   const [checkArcs, setCheckArcs] = useState([]); // Store arc results from last check (frozen)
   const [previousCheckArcs, setPreviousCheckArcs] = useState([]); // Track arcs from previous check to skip re-animation
   const [showTesting, setShowTesting] = useState(false); // Toggle testing buttons visibility
+  const [interactionMode, setInteractionMode] = useState('option1'); // 'option1' = Tap & Drag, 'option2' = Drag Only
   
 
-  // Initialize game on mount
+  // Initialize game on mount and check URL for interaction mode
   useEffect(() => {
     initializeGame();
+    
+    // Check URL parameter for interaction mode
+    const params = new URLSearchParams(window.location.search);
+    const mode = params.get('mode');
+    if (mode === 'option2') {
+      setInteractionMode('option2');
+    }
   }, []);
 
   // Detect board changes compared to last check
@@ -411,7 +419,6 @@ const GameContainer = () => {
     const isCorrectLocked = correctPositions.has(index);
     const isWrongPersistent = wrongPositions.has(index);
     
-    console.log(`createBoardPiece: index=${index}, piece=${piece}, isWrongPersistent=${isWrongPersistent}, wrongPositions has ${wrongPositions.size} items`);
     
     // Check if this piece is flying/fading during swap
     const isSwapping = swappingPiece?.type === 'board' && swappingPiece.index === index;
@@ -441,6 +448,11 @@ const GameContainer = () => {
         feedback={feedback[index]}
         isCorrectLocked={isCorrectLocked}
         isWrongPersistent={isWrongPersistent}
+        interactionMode={interactionMode}
+        onCloseZoom={() => {
+          setSelectedPiece(null);
+          setSelectedFrom(null);
+        }}
         swapOffset={swapOffset}
         swapAnimation={swapAnimation}
         delayLayout={shouldDelayLayout}
@@ -482,6 +494,12 @@ const GameContainer = () => {
             setActiveBoardIndex(index); // Mark this board position as active
           }}
           onDragEnd={(event, info, pieceData) => {
+            // Option 2: Close zoom on drag end
+            if (interactionMode === 'option2') {
+              setSelectedPiece(null);
+              setSelectedFrom(null);
+            }
+            
             // If hovering over valid swap target, trigger fly-fade animation
             if (hoveredSwapTarget && hoveredSwapTarget.type === 'board') {
               const targetIndex = hoveredSwapTarget.index;
@@ -580,13 +598,14 @@ const GameContainer = () => {
 
   // Handle clicks on background to close modal
   const handleBackgroundClick = (e) => {
-    // Close modal if NOT clicking on game pieces, board spaces, tray, controls, or nav
+    // Close modal if NOT clicking on game pieces, board spaces, tray, controls, nav, or modal
     const clickedElement = e.target;
     const isGameElement = clickedElement.closest('.board-space') || 
                          clickedElement.closest('.tray-space') ||
                          clickedElement.closest('.piece-that-drags') ||
                          clickedElement.closest('.Controls') ||
-                         clickedElement.closest('.Nav');
+                         clickedElement.closest('.Nav') ||
+                         clickedElement.closest('.PieceModal');
     
     if (!isGameElement && selectedPiece) {
       setSelectedPiece(null);
@@ -596,20 +615,44 @@ const GameContainer = () => {
 
   return (
     <div 
-      className="GameContainer-wrapper flex flex-col justify-start relative min-h-screen flex items-start justify-center p-0 gap-y-2 h-dvh"
+      className="GameContainer-wrapper flex flex-col justify-start relative min-h-screen w-full items-center justify-center p-0 gap-y-2 h-dvh"
       onClick={handleBackgroundClick}
     >
         {/* Sticky Nav at top */}
-        <nav className="Nav flex top-0 h-[50px] bg-[#050d1c] z-0 w-full items-center px-4">
-          {/* toggle Testing */}          
+        <nav className="Nav flex top-0 h-[50px] bg-[#050d1c] z-0 w-full items-center justify-center px-4">
+          {/* Left: Toggle Testing */}          
           <button 
             onClick={() => setShowTesting(!showTesting)}
-          className='ToggleTesting flex items-center justify-center w-[44px] h-[44px] bg-transparent hover:bg-sky-800 rounded-full transition-colors cursor-pointer'
+            className='ToggleTesting flex items-center justify-center w-[44px] h-[44px] bg-transparent hover:bg-sky-800 rounded-full transition-colors cursor-pointer'
           >
             <span className="text-xs text-[#050d1c]">
               {showTesting ? '✕' : 'ON'}
             </span>
           </button>
+          
+          {/* Right: Interaction Mode Toggle */}
+          <div className="flex ">
+            <button
+              onClick={() => setInteractionMode('option1')}
+              className={`px-3 py-1 font-bold text-xs rounded-full font-comfortaa transition-colors ${
+                interactionMode === 'option1' 
+                  ? 'bg-sky-975 text-teal-500' 
+                  : 'bg-transparent text-gray-400 hover:bg-gray-600'
+              }`}
+            >
+              Tap or Drag
+            </button>
+            <button
+              onClick={() => setInteractionMode('option2')}
+              className={`px-3 py-1 font-bold text-xs rounded-full font-comfortaa transition-colors ${
+                interactionMode === 'option2' 
+                ? 'bg-sky-975 text-teal-500' 
+                : 'bg-transparent text-gray-400 hover:bg-gray-600'
+              }`}
+            >
+              Drag Only
+            </button>
+          </div>
         </nav>
       
       {/* Main content wrapper */}
@@ -719,6 +762,11 @@ const GameContainer = () => {
                   isDraggable={gameStatus === 'playing'}
                   fromType="tray"
                   fromIndex={index}
+                  interactionMode={interactionMode}
+                  onCloseZoom={() => {
+                    setSelectedPiece(null);
+                    setSelectedFrom(null);
+                  }}
                   dragSnapToOrigin={true}
                   onDrag={(event, info) => {
                     // Detect hover target for swap preview (same logic as board pieces)
@@ -757,6 +805,12 @@ const GameContainer = () => {
                     setActiveTrayIndex(index); // Mark tray position as active
                   }}
                   onDragEnd={(event, info, pieceData) => {
+                    // Option 2: Close zoom on drag end
+                    if (interactionMode === 'option2') {
+                      setSelectedPiece(null);
+                      setSelectedFrom(null);
+                    }
+                    
                     // For tray → board swaps, just do simple swap (no fly-fade animation)
                     // Board piece moves to tray (different container), animation is complex
                     setHoveredSwapTarget(null); // Clear hover on drag end

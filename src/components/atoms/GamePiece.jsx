@@ -23,12 +23,14 @@ const GamePiece = ({
   onDrag,
   onDragEnd,
   onClick,
+  onCloseZoom,
   onPointerDown,
   fromType,
   fromIndex,
   feedback = null, // 'correct' | 'wrong' | null
   isCorrectLocked = false, // For starter piece and permanently correct pieces
   isWrongPersistent = false, // Piece is wrong and persists until moved
+  interactionMode = 'option1', // 'option1' = Tap & Drag, 'option2' = Drag Only
   swapOffset = { x: 0, y: 0 }, // Offset for swap preview animation
   swapAnimation = null, // Fly-fade animation during swap
   delayLayout = false, // Delay layout animation for dragged piece during swap
@@ -44,6 +46,7 @@ const GamePiece = ({
   // Tooltip for locked pieces
   const [showLockedTooltip, setShowLockedTooltip] = useState(false);
   const longPressTimerRef = useRef(null);
+  const zoomOpenedViaLongPress = useRef(false);
   
   // Background color based on feedback or correct/wrong locked state
   const getBgColor = () => {
@@ -64,14 +67,39 @@ const GamePiece = ({
     ? '/images/piece-active-board.svg' 
     : '/images/piece-active-tray.svg';
   
-  // Handle pointer down for locked pieces
+  // Handle pointer down for locked pieces and Option 2 long-press zoom
   const handlePointerDownInternal = (e) => {
-    // If locked piece - start timer for long press detection
-    if (isCorrectLocked && !isDraggable) {
-      // Capture boardSpace reference BEFORE setTimeout
+    // Option 2: Long press triggers zoom for all pieces
+    if (interactionMode === 'option2') {
       const boardSpace = e.currentTarget?.closest('.board-space');
       
-      // Start timer - shake after 0.5 seconds (drag attempt)
+      longPressTimerRef.current = setTimeout(() => {
+        // Open zoom for all pieces
+        if (onClick) {
+          onClick(e);
+          zoomOpenedViaLongPress.current = true;  // Track that zoom was opened
+        }
+        
+        // If locked, also show tooltip and shake
+        if (isCorrectLocked && !isDraggable) {
+          setShowLockedTooltip(true);
+          
+          // Trigger shake on parent BoardSpace
+          if (boardSpace) {
+            boardSpace.classList.add('shake-animation');
+            setTimeout(() => boardSpace.classList.remove('shake-animation'), 500);
+          }
+          
+          setTimeout(() => setShowLockedTooltip(false), 2000);
+        }
+      }, 500);
+      return;
+    }
+    
+    // Option 1: Locked piece long press for shake
+    if (isCorrectLocked && !isDraggable) {
+      const boardSpace = e.currentTarget?.closest('.board-space');
+      
       longPressTimerRef.current = setTimeout(() => {
         setShowLockedTooltip(true);
         
@@ -90,10 +118,16 @@ const GamePiece = ({
     if (onPointerDown) onPointerDown(e);
   };
   
-  // Handle pointer up/leave - cancel long press timer
+  // Handle pointer up/leave - cancel long press timer and close zoom in Option 2
   const handlePointerUpInternal = (e) => {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
+    }
+    
+    // Option 2: Close zoom on release if opened via long-press (and not currently dragging)
+    if (interactionMode === 'option2' && !isDraggingSelf && zoomOpenedViaLongPress.current && onCloseZoom) {
+      onCloseZoom();
+      zoomOpenedViaLongPress.current = false;  // Reset flag
     }
   };
 
@@ -129,7 +163,7 @@ const GamePiece = ({
       )}
 
       {/* Active ring (z-1) - middle layer */}
-      {isSelected && (
+      {isSelected && !(interactionMode === 'option2' && isDraggingSelf) && (
         <motion.img
           initial={{ opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -161,6 +195,18 @@ const GamePiece = ({
         dragSnapToOrigin
         onDragStart={(event, info) => {
           setIsDraggingSelf(true);
+          
+          // Cancel long-press timer when drag starts
+          if (longPressTimerRef.current) {
+            clearTimeout(longPressTimerRef.current);
+          }
+          
+          // Option 2: Show zoom when drag starts
+          if (interactionMode === 'option2' && onClick) {
+            onClick(event);
+            zoomOpenedViaLongPress.current = true;  // Track so it closes on drag end
+          }
+          
           if (onDragStart) {
             onDragStart(event, info, { id, fromType, fromIndex });
           }
@@ -172,12 +218,29 @@ const GamePiece = ({
         }}
         onDragEnd={(event, info) => {
           setIsDraggingSelf(false);
+          
+          // Option 2: Close zoom when drag ends
+          if (interactionMode === 'option2' && zoomOpenedViaLongPress.current && onCloseZoom) {
+            onCloseZoom();
+            zoomOpenedViaLongPress.current = false;
+          }
+          
           if (onDragEnd) {
             onDragEnd(event, info, { id, fromType, fromIndex });
           }
         }}
 
-        onClick={onClick}
+        onClick={(e) => {
+          // Option 1: Click opens zoom
+          if (interactionMode === 'option1' && onClick) {
+            onClick(e);
+          }
+          // Option 2: Block all clicks
+          if (interactionMode === 'option2') {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }}
         onPointerDown={handlePointerDownInternal}
         onPointerUp={handlePointerUpInternal}
         onPointerLeave={handlePointerUpInternal}

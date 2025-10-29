@@ -619,7 +619,7 @@ const GameContainer = () => {
       onClick={handleBackgroundClick}
     >
         {/* Sticky Nav at top */}
-        <nav className="Nav flex top-0 h-[50px] z-0 w-full items-center justify-center px-0">
+        <nav className="Nav flex top-0 h-[50px] z-0 w-full items-start justify-center px-0">
           {/* Left: Toggle Testing */}          
           <button 
             onClick={() => setShowTesting(!showTesting)}

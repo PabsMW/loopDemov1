@@ -619,7 +619,7 @@ const GameContainer = () => {
       onClick={handleBackgroundClick}
     >
         {/* Sticky Nav at top */}
-        <nav className="Nav flex top-0 h-[50px] bg-[#050d1c] z-0 w-full items-center justify-center px-4">
+        <nav className="Nav flex top-0 h-[50px] bg-[#050d1c] z-0 w-full items-center justify-center px-0">
           {/* Left: Toggle Testing */}          
           <button 
             onClick={() => setShowTesting(!showTesting)}
@@ -631,7 +631,7 @@ const GameContainer = () => {
           </button>
           
           {/* Right: Interaction Mode Toggle */}
-          <div className="flex ">
+          <div className="flex pr-[44px] ">
             <button
               onClick={() => setInteractionMode('option1')}
               className={`px-3 py-1 font-bold text-xs rounded-full font-comfortaa transition-colors ${

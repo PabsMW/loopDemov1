@@ -82,7 +82,9 @@ body {
   margin: 0;
   padding: 0;
   background-color: #020617;
-  
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
 }
 html,body,#root {
   overscroll-behavior: none;

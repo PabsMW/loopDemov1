@@ -371,6 +371,14 @@ const GameContainer = () => {
     setPreviousCheckArcs(checkArcs); // Store previous for comparison
     setCheckArcs(arcSegments); // Freeze arc results for this check
 
+    // Calculate total animation duration (based on non-teal arcs)
+    const nonTealArcsCount = arcSegments.filter((s, i) => {
+      const prevArc = checkArcs.find(ps => ps.index === i);
+      const alreadyCorrect = prevArc && prevArc.isCorrect && s.isCorrect;
+      return !alreadyCorrect;
+    }).length;
+    const actualAnimationDuration = nonTealArcsCount * CHECK_SEGMENT_DURATION;
+
     // Check correctness and schedule individual piece feedback with cascade
     boardSpaces.forEach((piece, index) => {
       const isCorrect = piece === correctOrder[index];
@@ -378,6 +386,17 @@ const GameContainer = () => {
       if (!isCorrect) {
         allCorrect = false;
       }
+      
+      // Calculate adjusted delay (matching arc delay logic from CheckProgressRing)
+      const nonTealArcsBefore = arcSegments
+        .slice(0, index)
+        .filter((s, i) => {
+          const prevArc = checkArcs.find(ps => ps.index === i);
+          const alreadyCorrect = prevArc && prevArc.isCorrect && s.isCorrect;
+          return !alreadyCorrect;
+        }).length;
+      
+      const adjustedPieceDelay = nonTealArcsBefore * CHECK_SEGMENT_DURATION * 1000;
       
       // Schedule state changes for this piece after its arc completes
       setTimeout(() => {
@@ -394,10 +413,10 @@ const GameContainer = () => {
           // Only add to wrongPositions if space has a piece (not empty)
           setWrongPositions(prev => new Set([...prev, index]));
         }
-      }, (index + 1) * CHECK_SEGMENT_DURATION * 1000);
+      }, adjustedPieceDelay);
     });
 
-    // Clear feedback and finish check after all animations complete
+    // Clear feedback and finish check after all animations complete + 1s pause
     setTimeout(() => {
       setFeedback({});
       setIsChecking(false);
@@ -411,7 +430,7 @@ const GameContainer = () => {
           setGameStatus('failed');
         }
       }
-    }, CHECK_PROGRESS_DURATION * 1000);
+    }, (actualAnimationDuration + 1) * 1000);  // Actual animation time + 1s pause
   };
 
   // Create board piece render function for GameBoard to use

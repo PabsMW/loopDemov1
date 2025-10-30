@@ -26,8 +26,8 @@ const PieceModal = ({
   // Background color based on state
   const getBgColor = () => {
     if (isCorrectLocked) {
-      // Option 2: cotton (neutral), Option 1: teal
-      return interactionMode === 'option2' ? '#F6F4EE' : '#CCFBF1';
+      // Option 2: soft teal, Option 1: teal
+      return interactionMode === 'option2' ? '#DBFCF5' : '#CCFBF1';
     }
     if (feedback === 'wrong') return '#FEE2E2'; // red-100 (only during check)
     return '#F6F4EE'; // cotton-300 default

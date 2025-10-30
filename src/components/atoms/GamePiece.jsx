@@ -42,6 +42,7 @@ const GamePiece = ({
   // Track hover state and dragging state
   const [isHovered, setIsHovered] = useState(false);
   const [isDraggingSelf, setIsDraggingSelf] = useState(false);
+  const [hasDragged, setHasDragged] = useState(false);
   
   // Tooltip for locked pieces
   const [showLockedTooltip, setShowLockedTooltip] = useState(false);
@@ -199,6 +200,7 @@ const GamePiece = ({
         dragSnapToOrigin
         onDragStart={(event, info) => {
           setIsDraggingSelf(true);
+          setHasDragged(true);
           
           // Cancel long-press timer when drag starts
           if (longPressTimerRef.current) {
@@ -223,12 +225,22 @@ const GamePiece = ({
             zoomOpenedViaLongPress.current = false;
           }
           
+          // Reset drag flag after a delay (after onClick might fire)
+          setTimeout(() => setHasDragged(false), 100);
+          
           if (onDragEnd) {
             onDragEnd(event, info, { id, fromType, fromIndex });
           }
         }}
 
         onClick={(e) => {
+          // Block if just finished dragging
+          if (hasDragged) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+          
           // Option 1: Click opens zoom
           if (interactionMode === 'option1' && onClick) {
             onClick(e);
@@ -271,7 +283,7 @@ const GamePiece = ({
             width: size,
             height: size,
             backgroundColor: isCorrectLocked || feedback === 'correct' 
-              ? (interactionMode === 'option2' ? '#F6F4EE' : '#CCFBF1')  // Option 2: cotton, Option 1: teal
+              ? (interactionMode === 'option2' ? '#DBFCF5' : '#CCFBF1')  // Option 2: soft teal, Option 1: teal
               : feedback === 'wrong'
               ? '#FEE2E2'  // red-100 (only during check animation)
               : '#F6F4EE'  // cotton-300 (default + wrong after check)

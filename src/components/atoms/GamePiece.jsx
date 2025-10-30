@@ -217,6 +217,12 @@ const GamePiece = ({
         onDragEnd={(event, info) => {
           setIsDraggingSelf(false);
           
+          // Option 2: Close zoom when drag ends (if opened via long-press)
+          if (interactionMode === 'option2' && zoomOpenedViaLongPress.current && onCloseZoom) {
+            onCloseZoom();
+            zoomOpenedViaLongPress.current = false;
+          }
+          
           if (onDragEnd) {
             onDragEnd(event, info, { id, fromType, fromIndex });
           }

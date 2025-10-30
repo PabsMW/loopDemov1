@@ -205,12 +205,6 @@ const GamePiece = ({
             clearTimeout(longPressTimerRef.current);
           }
           
-          // Option 2: Show zoom when drag starts
-          if (interactionMode === 'option2' && onClick) {
-            onClick(event);
-            zoomOpenedViaLongPress.current = true;  // Track so it closes on drag end
-          }
-          
           if (onDragStart) {
             onDragStart(event, info, { id, fromType, fromIndex });
           }
@@ -222,12 +216,6 @@ const GamePiece = ({
         }}
         onDragEnd={(event, info) => {
           setIsDraggingSelf(false);
-          
-          // Option 2: Close zoom when drag ends
-          if (interactionMode === 'option2' && zoomOpenedViaLongPress.current && onCloseZoom) {
-            onCloseZoom();
-            zoomOpenedViaLongPress.current = false;
-          }
           
           if (onDragEnd) {
             onDragEnd(event, info, { id, fromType, fromIndex });

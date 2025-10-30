@@ -494,12 +494,6 @@ const GameContainer = () => {
             setActiveBoardIndex(index); // Mark this board position as active
           }}
           onDragEnd={(event, info, pieceData) => {
-            // Option 2: Close zoom on drag end
-            if (interactionMode === 'option2') {
-              setSelectedPiece(null);
-              setSelectedFrom(null);
-            }
-            
             // If hovering over valid swap target, trigger fly-fade animation
             if (hoveredSwapTarget && hoveredSwapTarget.type === 'board') {
               const targetIndex = hoveredSwapTarget.index;
@@ -806,12 +800,6 @@ const GameContainer = () => {
                     setActiveTrayIndex(index); // Mark tray position as active
                   }}
                   onDragEnd={(event, info, pieceData) => {
-                    // Option 2: Close zoom on drag end
-                    if (interactionMode === 'option2') {
-                      setSelectedPiece(null);
-                      setSelectedFrom(null);
-                    }
-                    
                     // For tray → board swaps, just do simple swap (no fly-fade animation)
                     // Board piece moves to tray (different container), animation is complex
                     setHoveredSwapTarget(null); // Clear hover on drag end

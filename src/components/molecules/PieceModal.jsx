@@ -7,6 +7,7 @@ const PieceModal = ({
   feedback = null,
   isCorrectLocked = false,
   isWrongPersistent = false,
+  interactionMode = 'option1',
   onClose, 
   className = '' 
 }) => {
@@ -24,7 +25,10 @@ const PieceModal = ({
 
   // Background color based on state
   const getBgColor = () => {
-    if (isCorrectLocked) return '#CCFBF1'; // teal-100
+    if (isCorrectLocked) {
+      // Option 2: cotton (neutral), Option 1: teal
+      return interactionMode === 'option2' ? '#F6F4EE' : '#CCFBF1';
+    }
     if (feedback === 'wrong') return '#FEE2E2'; // red-100 (only during check)
     return '#F6F4EE'; // cotton-300 default
   };
@@ -32,7 +36,7 @@ const PieceModal = ({
   // Border color based on state
   const getBorderColor = () => {
     if (isCorrectLocked) return 'border-teal-500'; // Correct position
-    if (feedback === 'wrong' || isWrongPersistent) return 'border-red-500'; // Wrong position
+    if (feedback === 'wrong') return 'border-red-500'; // Wrong (only during check)
     return 'border-cyan-900'; // Default unchecked
   };
 

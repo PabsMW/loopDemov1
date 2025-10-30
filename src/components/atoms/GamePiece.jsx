@@ -50,13 +50,17 @@ const GamePiece = ({
   
   // Background color based on feedback or correct/wrong locked state
   const getBgColor = () => {
-    // Correct locked (starter or validated correct) - always teal
-    if (isCorrectLocked) return 'bg-teal-100';
+    // Correct locked (starter or validated correct)
+    if (isCorrectLocked) {
+      // Option 2: Use cotton (neutral), Option 1: Use teal
+      return interactionMode === 'option2' ? 'bg-cotton-300' : 'bg-teal-100';
+    }
     // Temporary feedback during check
-    if (feedback === 'correct') return 'bg-teal-100';
+    if (feedback === 'correct') {
+      return interactionMode === 'option2' ? 'bg-cotton-300' : 'bg-teal-100';
+    }
     // Wrong state (persistent until moved or temporary during check)
     if (feedback === 'wrong' || isWrongPersistent) {
-      console.log(`Piece ${id} at ${fromIndex}: feedback=${feedback}, isWrongPersistent=${isWrongPersistent}`);
       return 'bg-red-100';
     }
     return 'bg-cotton-300'; // Default
@@ -273,7 +277,7 @@ const GamePiece = ({
             width: size,
             height: size,
             backgroundColor: isCorrectLocked || feedback === 'correct' 
-              ? '#CCFBF1'  // teal-100
+              ? (interactionMode === 'option2' ? '#F6F4EE' : '#CCFBF1')  // Option 2: cotton, Option 1: teal
               : feedback === 'wrong'
               ? '#FEE2E2'  // red-100 (only during check animation)
               : '#F6F4EE'  // cotton-300 (default + wrong after check)

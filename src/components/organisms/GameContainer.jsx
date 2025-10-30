@@ -688,6 +688,7 @@ const GameContainer = () => {
               feedback={selectedFrom.type === 'board' ? feedback[selectedFrom.index] : null}
               isCorrectLocked={selectedFrom.type === 'board' && correctPositions.has(selectedFrom.index)}
               isWrongPersistent={selectedFrom.type === 'board' && wrongPositions.has(selectedFrom.index)}
+              interactionMode={interactionMode}
               onClose={() => {
                 setSelectedPiece(null);
                 setSelectedFrom(null);

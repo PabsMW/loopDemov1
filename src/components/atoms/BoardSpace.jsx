@@ -27,8 +27,8 @@ const BoardSpace = ({
     if (isCorrectLocked) {
       return '/images/board-space-correct.svg';
     }
-    // Wrong state (temporary during check or persistent until moved)
-    if (feedback === 'wrong' || isWrongPersistent) {
+    // Wrong state (only temporary during check animation)
+    if (feedback === 'wrong') {
       return '/images/board-space-wrong.svg';
     }
     // Drop zone state during drag (highlight background)

@@ -123,6 +123,9 @@ const GameContainer = () => {
   const handleTraySpaceClick = (trayIndex) => {
     const piece = traySpaces[trayIndex];
     if (!piece || gameStatus !== 'playing') return;
+    
+    // Option 2: Block tray clicks (only long-press for zoom)
+    if (interactionMode === 'option2') return;
 
     if (selectedPiece === piece && selectedFrom?.type === 'tray' && selectedFrom?.index === trayIndex) {
       // Deselect

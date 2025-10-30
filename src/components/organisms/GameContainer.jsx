@@ -715,6 +715,7 @@ const GameContainer = () => {
             activeBoardIndex={activeBoardIndex}
             hoveredSwapTarget={hoveredSwapTarget}
             hasSelectedPiece={selectedPiece !== null}
+            interactionMode={interactionMode}
           />
         </div>
         

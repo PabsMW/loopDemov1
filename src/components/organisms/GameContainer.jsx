@@ -884,8 +884,23 @@ const GameContainer = () => {
           >
             Back to Playing
           </button>
+                   {/* SVG Preview */}
+        <div className=" flex gap-2  flex-col items-center justify-center p-0h bg-black rounded">
+          <div className=" w-[12px] h-[12px] ">
+            <img src="/images/loop-check@2x.webp" alt="Check " className="w-[12px] h-[12px]"
+                          style={{ filter: 'drop-shadow(0 0 1px #14B8A6) drop-shadow(0 0 4px #14B8A6)' }}
+
+            />
+          </div>
+          <div className=" w-[12px] h-[12px] ">
+            <img src="/images/loop-x@2x.webp" alt="X " className="w-[12px] h-[12px]" 
+              style={{ filter: 'drop-shadow(0 0 1px #DC2626) drop-shadow(0 0 4px #DC2626)' }}
+            />
+          </div>
+        </div>
         </div>
         )}
+      
       </div>
 
 

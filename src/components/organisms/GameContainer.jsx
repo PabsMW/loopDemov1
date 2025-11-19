@@ -73,6 +73,7 @@ const GameContainer = () => {
   const [previousCheckArcs, setPreviousCheckArcs] = useState([]); // Track arcs from previous check to skip re-animation
   const [showTesting, setShowTesting] = useState(false); // Toggle testing buttons visibility
   const [interactionMode, setInteractionMode] = useState('option1'); // 'option1' = Tap & Drag, 'option2' = Drag Only
+  const [toggleKey, setToggleKey] = useState(0); // Force re-render for snap-back
   
   // Refs for toggle button widths
   const option1Ref = useRef(null);
@@ -665,11 +666,16 @@ const GameContainer = () => {
           <div className="flex relative bg-gray-800 rounded-full p-1 ">
             {/* Draggable pill background */}
             <motion.div
+              key={`${interactionMode}-${toggleKey}`}
               className="drag-toggle absolute bg-sky-975/10 rounded-full z-99 border border-slate-600 cursor-grab active:cursor-grabbing"
               style={{ 
                 height: '36px',
                 top: '2px',
                 left: '4px'
+              }}
+              initial={{
+                x: interactionMode === 'option1' ? 0 : toggleDimensions.option1Width,
+                width: interactionMode === 'option1' ? toggleDimensions.option1Width : toggleDimensions.option2Width
               }}
               animate={{
                 x: interactionMode === 'option1' ? 0 : toggleDimensions.option1Width,
@@ -693,11 +699,19 @@ const GameContainer = () => {
                 const relativeX = rect.left - containerRect.left + rect.width / 2;
                 const containerMidpoint = containerRect.width / 2;
                 
-                // Always snap based on which half we're in (binary choice)
+                // Determine which side based on position
                 const newMode = relativeX < containerMidpoint ? 'option1' : 'option2';
-                setInteractionMode(newMode);
                 
-                console.log('Drag end snap:', { relativeX, containerMidpoint, newMode });
+                // Set mode and force re-render to snap back
+                setInteractionMode(newMode);
+                setToggleKey(prev => prev + 1);  // Force remount for snap-back
+                
+                console.log('Drag end snap:', { 
+                  relativeX, 
+                  containerMidpoint, 
+                  newMode,
+                  currentMode: interactionMode
+                });
               }}
               transition={{ type: 'spring', stiffness: 500, damping: 30 }}
               layout

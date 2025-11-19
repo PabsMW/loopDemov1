@@ -665,7 +665,7 @@ const GameContainer = () => {
           <div className="flex relative bg-gray-800 rounded-full p-1 ">
             {/* Draggable pill background */}
             <motion.div
-              className="drag-toggle absolute bg-sky-975/10  rounded-full z-99 border border-slate-600"
+              className="drag-toggle absolute bg-sky-975/10 rounded-full z-99 border border-slate-600 cursor-grab active:cursor-grabbing"
               style={{ 
                 height: '36px',
                 top: '2px',
@@ -682,16 +682,25 @@ const GameContainer = () => {
               }}
               dragElastic={0}
               dragMomentum={false}
+              dragSnapToOrigin={false}
               onDragEnd={(event, info) => {
-                // Snap to closest option based on drag position
-                const threshold = toggleDimensions.option1Width / 2;
-                if (info.offset.x < threshold) {
-                  setInteractionMode('option1');
-                } else {
-                  setInteractionMode('option2');
-                }
+                // Get absolute position to determine which side
+                const dragElement = event.target;
+                const rect = dragElement.getBoundingClientRect();
+                const containerRect = dragElement.parentElement.getBoundingClientRect();
+                
+                // Calculate center point relative to container
+                const relativeX = rect.left - containerRect.left + rect.width / 2;
+                const containerMidpoint = containerRect.width / 2;
+                
+                // Always snap based on which half we're in (binary choice)
+                const newMode = relativeX < containerMidpoint ? 'option1' : 'option2';
+                setInteractionMode(newMode);
+                
+                console.log('Drag end snap:', { relativeX, containerMidpoint, newMode });
               }}
               transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+              layout
             />
             
             {/* Option 1 button */}

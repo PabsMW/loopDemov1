@@ -23,11 +23,8 @@ const Button = ({ children, onClick, disabled = false, tooltipText = '' }) => {
         onClick={handleClick}
         //disabled={disabled}
         className={`
-          px-10 py-3 pt-3.5 font-comfortaa font-bold rounded-full text-lg leading-none border shadow-lg 
-          ${disabled 
-            ? 'bg-sky-950 border-teal-600 text-teal-600 cursor-not-allowed' 
-            : 'bg-sky-975 text-teal-300 border-teal-300 hover:bg-teal-400 hover:text-sky-975 hover:shadow-xl'
-          }
+          px-10 py-3 pt-3.5 font-comfortaa font-bold rounded-full text-lg leading-none border shadow-lg g-sky-975 text-teal-300 border-teal-300 hover:bg-teal-400 hover:text-sky-975 hover:shadow-xl
+          
           transition-colors duration-500
         `}
         whileTap={!disabled ? { 

@@ -74,6 +74,11 @@ const GameContainer = () => {
   const [showTesting, setShowTesting] = useState(false); // Toggle testing buttons visibility
   const [interactionMode, setInteractionMode] = useState('option1'); // 'option1' = Tap & Drag, 'option2' = Drag Only
   
+  // Refs for toggle button widths
+  const option1Ref = useRef(null);
+  const option2Ref = useRef(null);
+  const [toggleDimensions, setToggleDimensions] = useState({ option1Width: 0, option2Width: 0 });
+  
 
   // Initialize game on mount and check URL for interaction mode
   useEffect(() => {
@@ -86,6 +91,16 @@ const GameContainer = () => {
       setInteractionMode('option2');
     }
   }, []);
+  
+  // Measure toggle button widths
+  useEffect(() => {
+    if (option1Ref.current && option2Ref.current) {
+      setToggleDimensions({
+        option1Width: option1Ref.current.offsetWidth,
+        option2Width: option2Ref.current.offsetWidth
+      });
+    }
+  }, [interactionMode]);
 
   // Detect board changes compared to last check
   useEffect(() => {
@@ -631,11 +646,11 @@ const GameContainer = () => {
 
   return (
     <div 
-      className="GameContainer-wrapper flex flex-col justify-start relative min-h-screen w-full items-center justify-center p-0 gap-y-2 h-dvh"
+      className="GameContainer-wrapper flex flex-col justify-start relative min-h-screen w-full items-center justify-center p-0 gap-y-2 h-dvh "
       onClick={handleBackgroundClick}
     >
         {/* Sticky Nav at top */}
-        <nav className="Nav flex top-0 h-[50px] z-0 w-full items-start justify-center px-0">
+        <nav className="Nav flex top-0 h-[50px] z-0 w-full items-start justify-center px-0 ml-[-44px]">
           {/* Left: Toggle Testing */}          
           <button 
             onClick={() => setShowTesting(!showTesting)}
@@ -646,24 +661,56 @@ const GameContainer = () => {
             </span>
           </button>
           
-          {/* Right: Interaction Mode Toggle */}
-          <div className="flex pr-[44px] ">
+          {/* Right: Draggable Interaction Mode Toggle */}
+          <div className="flex relative bg-gray-800 rounded-full p-1 ">
+            {/* Draggable pill background */}
+            <motion.div
+              className="drag-toggle absolute bg-sky-975/10  rounded-full z-99 border border-slate-600"
+              style={{ 
+                height: '36px',
+                top: '2px',
+                left: '4px'
+              }}
+              animate={{
+                x: interactionMode === 'option1' ? 0 : toggleDimensions.option1Width,
+                width: interactionMode === 'option1' ? toggleDimensions.option1Width : toggleDimensions.option2Width
+              }}
+              drag="x"
+              dragConstraints={{ 
+                left: 0, 
+                right: toggleDimensions.option1Width 
+              }}
+              dragElastic={0}
+              dragMomentum={false}
+              onDragEnd={(event, info) => {
+                // Snap to closest option based on drag position
+                const threshold = toggleDimensions.option1Width / 2;
+                if (info.offset.x < threshold) {
+                  setInteractionMode('option1');
+                } else {
+                  setInteractionMode('option2');
+                }
+              }}
+              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+            />
+            
+            {/* Option 1 button */}
             <button
+              ref={option1Ref}
               onClick={() => setInteractionMode('option1')}
-              className={`px-4 py-3 font-bold text-xs rounded-full font-comfortaa transition-colors ${
-                interactionMode === 'option1' 
-                  ? 'bg-sky-975 text-teal-500' 
-                  : 'bg-transparent text-gray-400 hover:bg-gray-600'
+              className={`relative z-10 px-4 py-2 font-bold text-xs rounded-full font-comfortaa transition-colors ${
+                interactionMode === 'option1' ? 'text-teal-500' : 'text-gray-400'
               }`}
             >
               Tap or Drag
             </button>
+            
+            {/* Option 2 button */}
             <button
+              ref={option2Ref}
               onClick={() => setInteractionMode('option2')}
-              className={`px-4 py-3 font-bold text-xs rounded-full font-comfortaa transition-colors ${
-                interactionMode === 'option2' 
-                ? 'bg-sky-975 text-teal-500' 
-                : 'bg-transparent text-gray-400 hover:bg-gray-600'
+              className={`relative z-10 px-4 py-2 font-bold text-xs rounded-full font-comfortaa transition-colors ${
+                interactionMode === 'option2' ? 'text-teal-500' : 'text-gray-400'
               }`}
             >
               Drag Only

@@ -50,7 +50,7 @@ const Controls = ({
         <Button 
           onClick={onCheck} 
           disabled={!hasChanges || isChecking}
-          tooltipText="Make a change"
+          tooltipText="Already Tried"
         >
           CHECK
         </Button>

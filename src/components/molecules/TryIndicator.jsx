@@ -23,7 +23,7 @@ const TryIndicator = ({ triesRemaining, totalTries = 5, hasChanges = true, skipA
             className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
               i < triesRemaining 
                 //? 'bg-teal-400 shadow-lg' 
-                ? `${hasChanges ? 'bg-teal-400': 'bg-teal-600'} shadow-lg` 
+                ? `${hasChanges ? 'bg-teal-400': 'bg-teal-400'} shadow-lg` 
                 : 'bg-cyan-900 '
             }`}
           />

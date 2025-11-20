@@ -73,7 +73,6 @@ const GameContainer = () => {
   const [previousCheckArcs, setPreviousCheckArcs] = useState([]); // Track arcs from previous check to skip re-animation
   const [showTesting, setShowTesting] = useState(false); // Toggle testing buttons visibility
   const [interactionMode, setInteractionMode] = useState('option1'); // 'option1' = Tap & Drag, 'option2' = Drag Only
-  const [toggleKey, setToggleKey] = useState(0); // Force re-render for snap-back
   
   // Refs for toggle button widths
   const option1Ref = useRef(null);
@@ -666,16 +665,11 @@ const GameContainer = () => {
           <div className="flex relative bg-gray-800 rounded-full p-1 ">
             {/* Draggable pill background */}
             <motion.div
-              key={`${interactionMode}-${toggleKey}`}
               className="drag-toggle absolute bg-sky-975/10 rounded-full z-99 border border-slate-600 cursor-grab active:cursor-grabbing"
               style={{ 
                 height: '36px',
                 top: '2px',
                 left: '4px'
-              }}
-              initial={{
-                x: interactionMode === 'option1' ? 0 : toggleDimensions.option1Width,
-                width: interactionMode === 'option1' ? toggleDimensions.option1Width : toggleDimensions.option2Width
               }}
               animate={{
                 x: interactionMode === 'option1' ? 0 : toggleDimensions.option1Width,
@@ -687,8 +681,22 @@ const GameContainer = () => {
                 right: toggleDimensions.option1Width 
               }}
               dragElastic={0}
-              dragMomentum={false}
+              dragMomentum={true}  // ✅ MUST be true for modifyTarget to work!
               dragSnapToOrigin={false}
+              dragTransition={{
+                power: 0.05,  // Very low momentum (0.05 = minimal carry, fast stop)
+                timeConstant: 50,  // Fast deceleration (50ms = snappy stop)
+                bounceStiffness: 800,  // How fast pill snaps to target (higher = faster)
+                bounceDamping: 40,  // Bounce control (matched to stiffness for smooth snap)
+                modifyTarget: (target) => {
+                  // Called during momentum phase - snaps target to nearest option
+                  // target = predicted end position based on drag velocity
+                  const threshold = toggleDimensions.option1Width / 2;  // Midpoint between options
+                  const snappedX = target < threshold ? 0 : toggleDimensions.option1Width;  // Binary snap
+                  console.log('modifyTarget called:', { target, threshold, snappedX });
+                  return snappedX;  // Returns snapped position for spring animation
+                }
+              }}
               onDragEnd={(event, info) => {
                 // Get absolute position to determine which side
                 const dragElement = event.target;
@@ -702,18 +710,15 @@ const GameContainer = () => {
                 // Determine which side based on position
                 const newMode = relativeX < containerMidpoint ? 'option1' : 'option2';
                 
-                // Set mode and force re-render to snap back
+                // Set mode - animate will handle smooth snap-back
                 setInteractionMode(newMode);
-                setToggleKey(prev => prev + 1);  // Force remount for snap-back
                 
-                console.log('Drag end snap:', { 
-                  relativeX, 
-                  containerMidpoint, 
-                  newMode,
-                  currentMode: interactionMode
-                });
               }}
-              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+              transition={{ 
+                type: 'spring',     // Physics-based animation
+                stiffness: 800,     // Controls click/programmatic changes (clicking option buttons)
+                damping: 30         // Smoothness for click animations
+              }}
               layout
             />
             
@@ -902,7 +907,8 @@ const GameContainer = () => {
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleTraySpaceClick(index);
+                    setSelectedPiece(piece);
+                    setSelectedFrom({ type: 'tray', index });
                   }}
                 />
               ) : null}

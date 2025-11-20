@@ -717,7 +717,7 @@ const GameContainer = () => {
               transition={{ 
                 type: 'spring',     // Physics-based animation
                 stiffness: 800,     // Controls click/programmatic changes (clicking option buttons)
-                damping: 30         // Smoothness for click animations
+                damping: 40         // Smoothness for click animations
               }}
               layout
             />

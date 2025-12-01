@@ -231,7 +231,7 @@ const GamePiece = ({
             
             // Two thresholds: wiggle vs intentional movement
             const hasWiggled = distance > 2;   // Any movement resets pause timer
-            const hasMoved = distance > 5;     // Only larger movement closes zoom
+            const hasMoved = distance > 3;     // Only larger movement closes zoom
             
             if (hasWiggled) {
               // Clear timer on any movement

@@ -39,10 +39,17 @@ const GameBoard = ({
         
         // Calculate swap offset for this piece if it's being hovered during drag
         const isHoverTarget = hoveredSwapTarget?.type === 'board' && hoveredSwapTarget.index === index;
+        const isDragged = activeBoardIndex === index;
         const isLeftSide = index >= 6 && index <= 11;
-        const swapOffset = isHoverTarget 
+        
+        // Only apply offset to hover target, NOT to dragged piece
+        const swapOffset = (isHoverTarget && !isDragged)
           ? { x: isLeftSide ? 30 : -30, y: -10, scale: 0.84 }
           : { x: 0, y: 0, scale: 1 };
+        
+        if (isHoverTarget || isDragged) {
+          console.log(`GameBoard index ${index} (${piece}):`, { isHoverTarget, isDragged, swapOffset });
+        }
         
         // Create the piece component with swapOffset
         const pieceComponent = piece ? createBoardPiece(piece, index, swapOffset) : null;

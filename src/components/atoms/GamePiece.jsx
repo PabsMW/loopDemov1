@@ -224,19 +224,24 @@ const GamePiece = ({
             const currentX = info.point.x;
             const currentY = info.point.y;
             
-            // Check if position changed (movement detected)
-            const hasMoved = Math.abs(currentX - lastDragPosition.current.x) > 2 ||
-                             Math.abs(currentY - lastDragPosition.current.y) > 2;
+            // Calculate movement distance from last position
+            const deltaX = Math.abs(currentX - lastDragPosition.current.x);
+            const deltaY = Math.abs(currentY - lastDragPosition.current.y);
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
             
-            if (hasMoved) {
-              // Movement detected - clear timer and close zoom if open
+            // Two thresholds: wiggle vs intentional movement
+            const hasWiggled = distance > 2;   // Any movement resets pause timer
+            const hasMoved = distance > 5;     // Only larger movement closes zoom
+            
+            if (hasWiggled) {
+              // Clear timer on any movement
               if (dragZoomTimerRef.current) {
                 clearTimeout(dragZoomTimerRef.current);
                 dragZoomTimerRef.current = null;
               }
               
-              // Close zoom when movement resumes after pause
-              if (zoomOpenedViaLongPress.current && onCloseZoom) {
+              // Only close zoom on intentional movement (>5px total distance)
+              if (hasMoved && zoomOpenedViaLongPress.current && onCloseZoom) {
                 onCloseZoom();
                 zoomOpenedViaLongPress.current = false;
               }

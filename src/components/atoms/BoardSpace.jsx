@@ -17,8 +17,8 @@ const BoardSpace = ({
   const dropZoneRef = useRef(null);
 
   const handleClick = () => {
-    // Option 2: Block clicks on BoardSpace (only long-press for zoom)
-    if (interactionMode === 'option2') return;
+    // Option 2 & 3: Block clicks on BoardSpace
+    if (interactionMode === 'option2' || interactionMode === 'option3') return;
     
     if (!isLocked && !isCorrectLocked && onClick) {
       onClick(index);

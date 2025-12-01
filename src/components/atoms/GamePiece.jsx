@@ -48,6 +48,8 @@ const GamePiece = ({
   const [showLockedTooltip, setShowLockedTooltip] = useState(false);
   const longPressTimerRef = useRef(null);
   const zoomOpenedViaLongPress = useRef(false);
+  const dragZoomTimerRef = useRef(null);
+  const lastDragPosition = useRef({ x: 0, y: 0 });
   
   // Background color based on feedback or correct/wrong locked state
   const getBgColor = () => {
@@ -74,7 +76,7 @@ const GamePiece = ({
   
   // Handle pointer down for locked pieces and Option 2 long-press zoom
   const handlePointerDownInternal = (e) => {
-    // Option 2: Long press triggers zoom for all pieces
+    // Option 2: Long press triggers zoom for all pieces (Option 3 uses drag timer instead)
     if (interactionMode === 'option2') {
       const boardSpace = e.currentTarget?.closest('.board-space');
       
@@ -168,7 +170,7 @@ const GamePiece = ({
       )}
 
       {/* Active ring (z-1) - middle layer */}
-      {isSelected && !(interactionMode === 'option2' && isDraggingSelf) && (
+      {isSelected && interactionMode === 'option1' && (
         <motion.img
           initial={{ opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -207,11 +209,50 @@ const GamePiece = ({
             clearTimeout(longPressTimerRef.current);
           }
           
+          // Option 3: Initialize drag position tracking
+          if (interactionMode === 'option3') {
+            lastDragPosition.current = { x: info.point.x, y: info.point.y };
+          }
+          
           if (onDragStart) {
             onDragStart(event, info, { id, fromType, fromIndex });
           }
         }}
         onDrag={(event, info) => {
+          // Option 3: Zoom triggers when paused during drag (not moving for 0.5s)
+          if (interactionMode === 'option3') {
+            const currentX = info.point.x;
+            const currentY = info.point.y;
+            
+            // Check if position changed (movement detected)
+            const hasMoved = Math.abs(currentX - lastDragPosition.current.x) > 2 ||
+                             Math.abs(currentY - lastDragPosition.current.y) > 2;
+            
+            if (hasMoved) {
+              // Movement detected - clear timer and close zoom if open
+              if (dragZoomTimerRef.current) {
+                clearTimeout(dragZoomTimerRef.current);
+                dragZoomTimerRef.current = null;
+              }
+              
+              // Close zoom when movement resumes after pause
+              if (zoomOpenedViaLongPress.current && onCloseZoom) {
+                onCloseZoom();
+                zoomOpenedViaLongPress.current = false;
+              }
+              
+              lastDragPosition.current = { x: currentX, y: currentY };
+            } else if (!dragZoomTimerRef.current && !zoomOpenedViaLongPress.current) {
+              // Stationary - start timer for zoom
+              dragZoomTimerRef.current = setTimeout(() => {
+                if (onClick) {
+                  onClick(event);
+                  zoomOpenedViaLongPress.current = true;
+                }
+              }, 500);
+            }
+          }
+          
           if (onDrag) {
             onDrag(event, info, { id, fromType, fromIndex });
           }
@@ -219,8 +260,14 @@ const GamePiece = ({
         onDragEnd={(event, info) => {
           setIsDraggingSelf(false);
           
-          // Option 2: Close zoom when drag ends (if opened via long-press)
-          if (interactionMode === 'option2' && zoomOpenedViaLongPress.current && onCloseZoom) {
+          // Clear drag zoom timer (Option 3)
+          if (dragZoomTimerRef.current) {
+            clearTimeout(dragZoomTimerRef.current);
+            dragZoomTimerRef.current = null;
+          }
+          
+          // Option 2 & 3: Close zoom when drag ends (if opened via long-press or drag)
+          if ((interactionMode === 'option2' || interactionMode === 'option3') && zoomOpenedViaLongPress.current && onCloseZoom) {
             onCloseZoom();
             zoomOpenedViaLongPress.current = false;
           }
@@ -245,8 +292,8 @@ const GamePiece = ({
           if (interactionMode === 'option1' && onClick) {
             onClick(e);
           }
-          // Option 2: Block all clicks
-          if (interactionMode === 'option2') {
+          // Option 2 & 3: Block all clicks
+          if (interactionMode === 'option2' || interactionMode === 'option3') {
             e.preventDefault();
             e.stopPropagation();
           }

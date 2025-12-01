@@ -72,12 +72,13 @@ const GameContainer = () => {
   const [checkArcs, setCheckArcs] = useState([]); // Store arc results from last check (frozen)
   const [previousCheckArcs, setPreviousCheckArcs] = useState([]); // Track arcs from previous check to skip re-animation
   const [showTesting, setShowTesting] = useState(false); // Toggle testing buttons visibility
-  const [interactionMode, setInteractionMode] = useState('option1'); // 'option1' = Tap & Drag, 'option2' = Drag Only
+  const [interactionMode, setInteractionMode] = useState('option1'); // 'option1' = Tap & Drag, 'option2' = Drag Only, 'option3' = While Drag
   
   // Refs for toggle button widths
   const option1Ref = useRef(null);
   const option2Ref = useRef(null);
-  const [toggleDimensions, setToggleDimensions] = useState({ option1Width: 0, option2Width: 0 });
+  const option3Ref = useRef(null);
+  const [toggleDimensions, setToggleDimensions] = useState({ option1Width: 0, option2Width: 0, option3Width: 0 });
   
 
   // Initialize game on mount and check URL for interaction mode
@@ -89,15 +90,18 @@ const GameContainer = () => {
     const mode = params.get('mode');
     if (mode === 'option2') {
       setInteractionMode('option2');
+    } else if (mode === 'option3') {
+      setInteractionMode('option3');
     }
   }, []);
   
   // Measure toggle button widths
   useEffect(() => {
-    if (option1Ref.current && option2Ref.current) {
+    if (option1Ref.current && option2Ref.current && option3Ref.current) {
       setToggleDimensions({
         option1Width: option1Ref.current.offsetWidth,
-        option2Width: option2Ref.current.offsetWidth
+        option2Width: option2Ref.current.offsetWidth,
+        option3Width: option3Ref.current.offsetWidth
       });
     }
   }, [interactionMode]);
@@ -139,8 +143,8 @@ const GameContainer = () => {
     const piece = traySpaces[trayIndex];
     if (!piece || gameStatus !== 'playing') return;
     
-    // Option 2: Block tray clicks (only long-press for zoom)
-    if (interactionMode === 'option2') return;
+    // Option 2 & 3: Block tray clicks
+    if (interactionMode === 'option2' || interactionMode === 'option3') return;
 
     if (selectedPiece === piece && selectedFrom?.type === 'tray' && selectedFrom?.index === trayIndex) {
       // Deselect
@@ -672,13 +676,17 @@ const GameContainer = () => {
                 left: '4px'
               }}
               animate={{
-                x: interactionMode === 'option1' ? 0 : toggleDimensions.option1Width,
-                width: interactionMode === 'option1' ? toggleDimensions.option1Width : toggleDimensions.option2Width
+                x: interactionMode === 'option1' ? 0 
+                  : interactionMode === 'option2' ? toggleDimensions.option1Width
+                  : toggleDimensions.option1Width + toggleDimensions.option2Width,
+                width: interactionMode === 'option1' ? toggleDimensions.option1Width 
+                  : interactionMode === 'option2' ? toggleDimensions.option2Width
+                  : toggleDimensions.option3Width
               }}
               drag="x"
               dragConstraints={{ 
                 left: 0, 
-                right: toggleDimensions.option1Width 
+                right: toggleDimensions.option1Width + toggleDimensions.option2Width
               }}
               dragElastic={0}
               dragMomentum={true}  // ✅ MUST be true for modifyTarget to work!
@@ -689,12 +697,22 @@ const GameContainer = () => {
                 bounceStiffness: 800,  // How fast pill snaps to target (higher = faster)
                 bounceDamping: 40,  // Bounce control (matched to stiffness for smooth snap)
                 modifyTarget: (target) => {
-                  // Called during momentum phase - snaps target to nearest option
+                  // Called during momentum phase - snaps target to nearest option (3-way)
                   // target = predicted end position based on drag velocity
-                  const threshold = toggleDimensions.option1Width / 2;  // Midpoint between options
-                  const snappedX = target < threshold ? 0 : toggleDimensions.option1Width;  // Binary snap
-                  console.log('modifyTarget called:', { target, threshold, snappedX });
-                  return snappedX;  // Returns snapped position for spring animation
+                  const threshold1 = toggleDimensions.option1Width / 2;
+                  const threshold2 = toggleDimensions.option1Width + toggleDimensions.option2Width / 2;
+                  
+                  let snappedX;
+                  if (target < threshold1) {
+                    snappedX = 0;  // Option 1
+                  } else if (target < threshold2) {
+                    snappedX = toggleDimensions.option1Width;  // Option 2
+                  } else {
+                    snappedX = toggleDimensions.option1Width + toggleDimensions.option2Width;  // Option 3
+                  }
+                  
+                  console.log('modifyTarget called:', { target, threshold1, threshold2, snappedX });
+                  return snappedX;
                 }
               }}
               onDragEnd={(event, info) => {
@@ -742,6 +760,17 @@ const GameContainer = () => {
               }`}
             >
               Drag Only
+            </button>
+            
+            {/* Option 3 button */}
+            <button
+              ref={option3Ref}
+              onClick={() => setInteractionMode('option3')}
+              className={`relative z-10 px-4 py-2 font-bold text-xs rounded-full font-comfortaa transition-colors ${
+                interactionMode === 'option3' ? 'text-teal-500' : 'text-gray-400'
+              }`}
+            >
+              While Drag
             </button>
           </div>
         </nav>
@@ -851,7 +880,7 @@ const GameContainer = () => {
                   id={piece}
                   imageSrc={allPieces[piece]}
                   alt={piece}
-                  isSelected={selectedPiece === piece && selectedFrom?.type === 'tray' && selectedFrom?.index === index}
+                  isSelected={selectedPiece === piece && selectedFrom?.type === 'tray' && selectedFrom?.index === index && interactionMode !== 'option3'}
                   isDraggable={gameStatus === 'playing'}
                   fromType="tray"
                   fromIndex={index}

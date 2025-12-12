@@ -1031,6 +1031,13 @@ const GameContainer = () => {
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
+                    // Option 1 & 4: If clicking the same selected piece, deselect it (close zoom)
+                    if ((interactionMode === 'option1' || interactionMode === 'option4') && 
+                        selectedPiece === piece && selectedFrom?.type === 'tray' && selectedFrom?.index === index) {
+                      setSelectedPiece(null);
+                      setSelectedFrom(null);
+                      return;
+                    }
                     setSelectedPiece(piece);
                     setSelectedFrom({ type: 'tray', index });
                   }}

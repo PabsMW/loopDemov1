@@ -219,6 +219,12 @@ const GamePiece = ({
           }
         }}
         onDrag={(event, info) => {
+          // Option 2: Close zoom when user starts moving (if opened via long-press)
+          if (interactionMode === 'option2' && zoomOpenedViaLongPress.current && onCloseZoom) {
+            onCloseZoom();
+            zoomOpenedViaLongPress.current = false;
+          }
+          
           // Option 3: Zoom triggers when paused during drag (not moving for 0.5s)
           if (interactionMode === 'option3') {
             const currentX = info.point.x;
@@ -293,8 +299,8 @@ const GamePiece = ({
             return;
           }
           
-          // Option 1: Click opens zoom
-          if (interactionMode === 'option1' && onClick) {
+          // Option 1 & 4: Click opens zoom
+          if ((interactionMode === 'option1' || interactionMode === 'option4') && onClick) {
             onClick(e);
           }
           // Option 2 & 3: Block all clicks

@@ -73,12 +73,23 @@ const GameContainer = () => {
   const [previousCheckArcs, setPreviousCheckArcs] = useState([]); // Track arcs from previous check to skip re-animation
   const [showTesting, setShowTesting] = useState(false); // Toggle testing buttons visibility
   const [interactionMode, setInteractionMode] = useState('option1'); // 'option1' = Tap & Drag, 'option2' = Drag Only, 'option3' = While Drag
+  const [modeTooltip, setModeTooltip] = useState(null); // Tooltip for mode changes
   
   // Refs for toggle button widths
   const option1Ref = useRef(null);
   const option2Ref = useRef(null);
   const option3Ref = useRef(null);
-  const [toggleDimensions, setToggleDimensions] = useState({ option1Width: 0, option2Width: 0, option3Width: 0 });
+  const option4Ref = useRef(null);
+  const modeTooltipTimerRef = useRef(null);
+  
+  // Tooltip descriptions for each interaction mode
+  const modeDescriptions = {
+    option1: 'Tap & Drag. Click to zoom.',
+    option2: 'Drag only. Hold to zoom.',
+    option3: 'Drag to move. Pause to zoom.',
+    option4: 'Drag only. Click to zoom.'
+  };
+  const [toggleDimensions, setToggleDimensions] = useState({ option1Width: 0, option2Width: 0, option3Width: 0, option4Width: 0 });
   
 
   // Initialize game on mount and check URL for interaction mode
@@ -92,16 +103,19 @@ const GameContainer = () => {
       setInteractionMode('option2');
     } else if (mode === 'option3') {
       setInteractionMode('option3');
+    } else if (mode === 'option4') {
+      setInteractionMode('option4');
     }
   }, []);
   
   // Measure toggle button widths
   useEffect(() => {
-    if (option1Ref.current && option2Ref.current && option3Ref.current) {
+    if (option1Ref.current && option2Ref.current && option3Ref.current && option4Ref.current) {
       setToggleDimensions({
         option1Width: option1Ref.current.offsetWidth,
         option2Width: option2Ref.current.offsetWidth,
-        option3Width: option3Ref.current.offsetWidth
+        option3Width: option3Ref.current.offsetWidth,
+        option4Width: option4Ref.current.offsetWidth
       });
     }
   }, [interactionMode]);
@@ -114,6 +128,28 @@ const GameContainer = () => {
     const boardChanged = boardSpaces.some((piece, index) => piece !== lastCheckedBoard[index]);
     setHasChanges(boardChanged);
   }, [boardSpaces, lastCheckedBoard]);
+
+  // Show tooltip when interaction mode changes
+  useEffect(() => {
+    // Clear existing timer
+    if (modeTooltipTimerRef.current) {
+      clearTimeout(modeTooltipTimerRef.current);
+    }
+    
+    // Show tooltip
+    setModeTooltip(modeDescriptions[interactionMode]);
+    
+    // Hide after 3 seconds
+    modeTooltipTimerRef.current = setTimeout(() => {
+      setModeTooltip(null);
+    }, 3000);
+    
+    return () => {
+      if (modeTooltipTimerRef.current) {
+        clearTimeout(modeTooltipTimerRef.current);
+      }
+    };
+  }, [interactionMode]);
 
   const initializeGame = () => {
     // Filter out starter piece from tray
@@ -173,7 +209,17 @@ const GameContainer = () => {
       return;
     }
 
-    // If piece is selected, place it
+    // Option 4: No tap-to-switch, only allow selecting (not placing)
+    if (interactionMode === 'option4') {
+      // If clicking on a different piece, just select it instead
+      if (currentPiece && currentPiece !== selectedPiece) {
+        setSelectedPiece(currentPiece);
+        setSelectedFrom({ type: 'board', index: boardIndex });
+      }
+      return;
+    }
+
+    // If piece is selected, place it (Option 1 only)
     placePiece(boardIndex);
   };
 
@@ -622,7 +668,14 @@ const GameContainer = () => {
               return;
             }
             
-            // If different piece is selected, place it here
+            // Option 4: No tap-to-switch, just select the clicked piece
+            if (interactionMode === 'option4') {
+              setSelectedPiece(piece);
+              setSelectedFrom({ type: 'board', index });
+              return;
+            }
+            
+            // If different piece is selected, place it here (Option 1 only)
             if (selectedPiece && selectedPiece !== piece) {
               placePiece(index);
             }
@@ -676,17 +729,20 @@ const GameContainer = () => {
                 left: '4px'
               }}
               animate={{
+                // Visual order: Option 1 → Option 4 → Option 2 → Option 3
                 x: interactionMode === 'option1' ? 0 
-                  : interactionMode === 'option2' ? toggleDimensions.option1Width
-                  : toggleDimensions.option1Width + toggleDimensions.option2Width,
+                  : interactionMode === 'option4' ? toggleDimensions.option1Width
+                  : interactionMode === 'option2' ? toggleDimensions.option1Width + toggleDimensions.option4Width
+                  : toggleDimensions.option1Width + toggleDimensions.option4Width + toggleDimensions.option2Width,
                 width: interactionMode === 'option1' ? toggleDimensions.option1Width 
+                  : interactionMode === 'option4' ? toggleDimensions.option4Width
                   : interactionMode === 'option2' ? toggleDimensions.option2Width
                   : toggleDimensions.option3Width
               }}
               drag="x"
               dragConstraints={{ 
                 left: 0, 
-                right: toggleDimensions.option1Width + toggleDimensions.option2Width
+                right: toggleDimensions.option1Width + toggleDimensions.option4Width + toggleDimensions.option2Width
               }}
               dragElastic={0}
               dragMomentum={true}  // ✅ MUST be true for modifyTarget to work!
@@ -697,36 +753,49 @@ const GameContainer = () => {
                 bounceStiffness: 800,  // How fast pill snaps to target (higher = faster)
                 bounceDamping: 40,  // Bounce control (matched to stiffness for smooth snap)
                 modifyTarget: (target) => {
-                  // Called during momentum phase - snaps target to nearest option (3-way)
-                  // target = predicted end position based on drag velocity
+                  // Visual order: Option 1 → Option 4 → Option 2 → Option 3
                   const threshold1 = toggleDimensions.option1Width / 2;
-                  const threshold2 = toggleDimensions.option1Width + toggleDimensions.option2Width / 2;
+                  const threshold2 = toggleDimensions.option1Width + toggleDimensions.option4Width / 2;
+                  const threshold3 = toggleDimensions.option1Width + toggleDimensions.option4Width + toggleDimensions.option2Width / 2;
                   
                   let snappedX;
                   if (target < threshold1) {
                     snappedX = 0;  // Option 1
                   } else if (target < threshold2) {
-                    snappedX = toggleDimensions.option1Width;  // Option 2
+                    snappedX = toggleDimensions.option1Width;  // Option 4
+                  } else if (target < threshold3) {
+                    snappedX = toggleDimensions.option1Width + toggleDimensions.option4Width;  // Option 2
                   } else {
-                    snappedX = toggleDimensions.option1Width + toggleDimensions.option2Width;  // Option 3
+                    snappedX = toggleDimensions.option1Width + toggleDimensions.option4Width + toggleDimensions.option2Width;  // Option 3
                   }
                   
-                  console.log('modifyTarget called:', { target, threshold1, threshold2, snappedX });
                   return snappedX;
                 }
               }}
               onDragEnd={(event, info) => {
-                // Get absolute position to determine which side
+                // Get absolute position to determine which option
                 const dragElement = event.target;
                 const rect = dragElement.getBoundingClientRect();
                 const containerRect = dragElement.parentElement.getBoundingClientRect();
                 
                 // Calculate center point relative to container
                 const relativeX = rect.left - containerRect.left + rect.width / 2;
-                const containerMidpoint = containerRect.width / 2;
                 
-                // Determine which side based on position
-                const newMode = relativeX < containerMidpoint ? 'option1' : 'option2';
+                // Visual order: Option 1 → Option 4 → Option 2 → Option 3
+                const threshold1 = toggleDimensions.option1Width;
+                const threshold2 = toggleDimensions.option1Width + toggleDimensions.option4Width;
+                const threshold3 = toggleDimensions.option1Width + toggleDimensions.option4Width + toggleDimensions.option2Width;
+                
+                let newMode;
+                if (relativeX < threshold1) {
+                  newMode = 'option1';
+                } else if (relativeX < threshold2) {
+                  newMode = 'option4';
+                } else if (relativeX < threshold3) {
+                  newMode = 'option2';
+                } else {
+                  newMode = 'option3';
+                }
                 
                 // Set mode - animate will handle smooth snap-back
                 setInteractionMode(newMode);
@@ -748,7 +817,18 @@ const GameContainer = () => {
                 interactionMode === 'option1' ? 'text-teal-500' : 'text-gray-400'
               }`}
             >
-              Tap or Drag
+              Tap+
+            </button>
+            
+            {/* Option 4 button */}
+            <button
+              ref={option4Ref}
+              onClick={() => setInteractionMode('option4')}
+              className={`relative z-10 px-4 py-2 font-bold text-xs rounded-full font-comfortaa transition-colors ${
+                interactionMode === 'option4' ? 'text-teal-500' : 'text-gray-400'
+              }`}
+            >
+              Tap
             </button>
             
             {/* Option 2 button */}
@@ -759,7 +839,7 @@ const GameContainer = () => {
                 interactionMode === 'option2' ? 'text-teal-500' : 'text-gray-400'
               }`}
             >
-              Drag Only
+              Hold
             </button>
             
             {/* Option 3 button */}
@@ -770,10 +850,25 @@ const GameContainer = () => {
                 interactionMode === 'option3' ? 'text-teal-500' : 'text-gray-400'
               }`}
             >
-              While Drag
+              Pause
             </button>
           </div>
         </nav>
+
+        {/* Mode change tooltip */}
+        <AnimatePresence>
+          {modeTooltip && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="fixed top-11 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg shadow-lg"
+            >
+              {modeTooltip}
+            </motion.div>
+          )}
+        </AnimatePresence>
       
       {/* Main content wrapper */}
       <div className="GameContainer relative flex flex-col items-center justify-center text-center space-y-8 max-w-sm w-full">

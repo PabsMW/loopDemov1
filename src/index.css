@@ -88,6 +88,7 @@ body {
 }
 html,body,#root {
   overscroll-behavior: none;
+  overflow: hidden;
 }
 
 /* Shake animation for locked pieces */

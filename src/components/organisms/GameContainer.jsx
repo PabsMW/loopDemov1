@@ -7,6 +7,7 @@ import PieceModal from '../molecules/PieceModal';
 import BackgroundLayer from '../molecules/BackgroundLayer';
 import Controls from '../molecules/Controls';
 import { SWAP_FLY_DURATION, CHECK_PROGRESS_DURATION, CHECK_SEGMENT_DURATION } from '../../constants/animations';
+import { playSound } from '../../utils/audio';
 
 const GameContainer = () => {
   // Game data - single source of truth
@@ -303,6 +304,9 @@ const GameContainer = () => {
       }
     }
 
+    // Play item placement sound
+    playSound('item-place');
+
     // Deselect only if using state (click-to-move)
     if (!piece && !from) {
       setSelectedPiece(null);
@@ -405,6 +409,7 @@ const GameContainer = () => {
       
       setBoardSpaces(newBoard);
       setTraySpaces(newTray);
+      playSound('item-place');
       setSelectedPiece(null);
       setSelectedFrom(null);
     }
@@ -468,6 +473,11 @@ const GameContainer = () => {
       
       // Schedule state changes for this piece after its arc completes
       setTimeout(() => {
+        // Play sound for correct/incorrect (only if there's a piece)
+        if (piece) {
+          playSound(isCorrect ? 'check-correct' : 'check-incorrect', isCorrect ? 1 : .5);
+        }
+        
         // Set temporary feedback
         setFeedback(prev => ({
           ...prev,
@@ -490,8 +500,10 @@ const GameContainer = () => {
       setIsChecking(false);
 
       if (allCorrect) {
+        playSound('game-success');
         setGameStatus('won');
       } else {
+        playSound('game-try-again');
         const newTries = triesRemaining - 1;
         setTriesRemaining(newTries);
         if (newTries === 0) {

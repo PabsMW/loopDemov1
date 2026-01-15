@@ -473,8 +473,8 @@ const GameContainer = () => {
       
       // Schedule state changes for this piece after its arc completes
       setTimeout(() => {
-        // Play sound for correct/incorrect (only if there's a piece)
-        if (piece) {
+        // Play sound for correct/incorrect (only if there's a piece AND not already locked)
+        if (piece && !correctPositions.has(index)) {
           playSound(isCorrect ? 'check-correct' : 'check-incorrect', isCorrect ? 1 : .5);
         }
         

@@ -9,22 +9,50 @@ import Controls from '../molecules/Controls';
 import { SWAP_FLY_DURATION, CHECK_PROGRESS_DURATION, CHECK_SEGMENT_DURATION } from '../../constants/animations';
 import { playSound } from '../../utils/audio';
 
+// Games configuration
+const GAMES = {
+  game1: {
+    name: 'Game 1',
+    data: [
+      { id: 'popcorn', image: '/images/items-1/popcorn.webp', isStarter: true },
+      { id: 'corn', image: '/images/items-1/corn.webp' },
+      { id: 'ear', image: '/images/items-1/ear.webp' },
+      { id: 'tunning-fork', image: '/images/items-1/tunning-fork.webp' },
+      { id: 'piano', image: '/images/items-1/piano.webp' },
+      { id: 'key', image: '/images/items-1/key.webp' },
+      { id: 'cage', image: '/images/items-1/cage.webp' },
+      { id: 'bird', image: '/images/items-1/bird.webp' },
+      { id: 'worm', image: '/images/items-1/worm.webp' },
+      { id: 'book', image: '/images/items-1/book.webp' },
+      { id: 'script', image: '/images/items-1/script.webp' },
+      { id: 'movie', image: '/images/items-1/movie.webp' }
+    ]
+  },
+  game2: {
+    name: 'Game 2',
+    data: [
+      { id: 'pig', image: '/images/items-2/pig.webp', isStarter: true },
+      { id: 'football', image: '/images/items-2/football.webp' },
+      { id: 'baseball', image: '/images/items-2/baseball.webp' },
+      { id: 'baseball_pitcher', image: '/images/items-2/baseball_pitcher.webp' },
+      { id: 'beer', image: '/images/items-2/beer.webp' },
+      { id: 'bar', image: '/images/items-2/bar.webp' },
+      { id: 'crowbar', image: '/images/items-2/crowbar.webp' },
+      { id: 'crow', image: '/images/items-2/crow.webp' },
+      { id: 'feather', image: '/images/items-2/feather.webp' },
+      { id: 'pillow', image: '/images/items-2/pillow.webp' },
+      { id: 'blanket', image: '/images/items-2/blanket.webp' },
+      { id: 'pigs_in_blankets', image: '/images/items-2/pigs_in_blankets.webp' }
+    ]
+  }
+};
+
 const GameContainer = () => {
-  // Game data - single source of truth
-  const gameData = [
-    { id: 'popcorn', image: '/images/items-1/popcorn.webp', isStarter: true },
-    { id: 'corn', image: '/images/items-1/corn.webp' },
-    { id: 'ear', image: '/images/items-1/ear.webp' },
-    { id: 'tunning-fork', image: '/images/items-1/tunning-fork.webp' },
-    { id: 'piano', image: '/images/items-1/piano.webp' },
-    { id: 'key', image: '/images/items-1/key.webp' },
-    { id: 'cage', image: '/images/items-1/cage.webp' },
-    { id: 'bird', image: '/images/items-1/bird.webp' },
-    { id: 'worm', image: '/images/items-1/worm.webp' },
-    { id: 'book', image: '/images/items-1/book.webp' },
-    { id: 'script', image: '/images/items-1/script.webp' },
-    { id: 'movie', image: '/images/items-1/movie.webp' }
-  ];
+  // Selected game state
+  const [selectedGame, setSelectedGame] = useState('game1');
+  
+  // Game data derived from selected game
+  const gameData = GAMES[selectedGame].data;
 
   // Derived data
   const starterIndex = gameData.findIndex(item => item.isStarter);
@@ -93,12 +121,17 @@ const GameContainer = () => {
   const [toggleDimensions, setToggleDimensions] = useState({ option1Width: 0, option2Width: 0, option3Width: 0, option4Width: 0 });
   
 
-  // Initialize game on mount and check URL for interaction mode
+  // Initialize game on mount and check URL parameters
   useEffect(() => {
-    initializeGame();
+    const params = new URLSearchParams(window.location.search);
+    
+    // Check URL parameter for game selection
+    const game = params.get('game');
+    if (game && GAMES[game]) {
+      setSelectedGame(game);
+    }
     
     // Check URL parameter for interaction mode
-    const params = new URLSearchParams(window.location.search);
     const mode = params.get('mode');
     if (mode === 'option2') {
       setInteractionMode('option2');
@@ -107,7 +140,20 @@ const GameContainer = () => {
     } else if (mode === 'option4') {
       setInteractionMode('option4');
     }
+    
+    initializeGame();
   }, []);
+
+  // Reset game when switching games
+  useEffect(() => {
+    // Skip initial mount (handled by above effect)
+    if (selectedGame) {
+      initializeGame();
+      setHasEverChecked(false);
+      setCheckArcs([]);
+      setPreviousCheckArcs([]);
+    }
+  }, [selectedGame]);
   
   // Measure toggle button widths
   useEffect(() => {
@@ -719,16 +765,40 @@ const GameContainer = () => {
       onClick={handleBackgroundClick}
     >
         {/* Sticky Nav at top */}
-        <nav className="Nav flex top-0 h-[50px] z-0 w-full items-start justify-center px-0 ml-[-44px]">
+        <nav className="Nav flex top-0 h-[50px] z-0 w-full items-start justify-center px-0 gap-2">
           {/* Left: Toggle Testing */}          
           <button 
             onClick={() => setShowTesting(!showTesting)}
-            className='ToggleTesting flex items-center justify-center w-[44px] h-[44px] bg-transparent hover:bg-sky-800 rounded-full transition-colors cursor-pointer'
+            className='ToggleTesting flex items-center justify-center w-[40px] h-[40px] bg-transparent hover:bg-sky-800 rounded-full transition-colors cursor-pointer'
           >
             <span className="text-xs text-[#050d1c]">
               {showTesting ? '✕' : 'ON'}
             </span>
           </button>
+
+          {/* Game Selector Dropdown */}
+          <div className="relative">
+            <select
+              value={selectedGame}
+              onChange={(e) => setSelectedGame(e.target.value)}
+              className="appearance-none h-[40px] pl-3 pr-8 bg-gray-800 text-gray-300 text-sm font-comfortaa rounded-full border border-slate-600 cursor-pointer focus:outline-none focus:border-teal-500 transition-colors"
+            >
+              {Object.entries(GAMES).map(([key, game]) => (
+                <option key={key} value={key}>
+                  {game.name}
+                </option>
+              ))}
+            </select>
+            {/* Custom chevron */}
+            <svg 
+              className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none w-4 h-4 text-gray-400"
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
           
           {/* Right: Draggable Interaction Mode Toggle */}
           <div className="flex relative bg-gray-800 rounded-full p-1 ">

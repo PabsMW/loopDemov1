@@ -498,32 +498,57 @@ const GameContainer = () => {
     }).length;
     const actualAnimationDuration = nonTealArcsCount * CHECK_SEGMENT_DURATION;
 
-    // Check correctness and schedule individual piece feedback with cascade
-    boardSpaces.forEach((piece, index) => {
+    // Build array of items to check with their properties
+    const itemsToCheck = boardSpaces.map((piece, index) => {
       const isCorrect = piece === correctOrder[index];
+      if (!isCorrect) allCorrect = false;
       
-      if (!isCorrect) {
-        allCorrect = false;
+      // Check if this arc should be skipped (already correct from previous check)
+      const prevArc = checkArcs.find(ps => ps.index === index);
+      const currentArc = arcSegments[index];
+      const shouldSkipArc = prevArc && prevArc.isCorrect && currentArc.isCorrect;
+      
+      return {
+        piece,
+        index,
+        isCorrect,
+        shouldSkipArc,
+        needsSound: piece && !correctPositions.has(index)
+      };
+    });
+
+    // Sequential sound playback for even spacing
+    const itemsNeedingSound = itemsToCheck.filter(item => item.needsSound && !item.shouldSkipArc);
+    let soundIndex = 0;
+    
+    const playNextSound = () => {
+      if (soundIndex >= itemsNeedingSound.length) return;
+      
+      const item = itemsNeedingSound[soundIndex];
+      playSound(item.isCorrect ? 'check-correct' : 'check-incorrect', item.isCorrect ? 1 : 0.5);
+      
+      soundIndex++;
+      if (soundIndex < itemsNeedingSound.length) {
+        setTimeout(playNextSound, CHECK_SEGMENT_DURATION * 1000);
       }
+    };
+    
+    // Start sound sequence
+    playNextSound();
+
+    // Schedule visual feedback for each piece (keeps sync with arc animation)
+    itemsToCheck.forEach((item) => {
+      const { piece, index, isCorrect, shouldSkipArc } = item;
       
       // Calculate adjusted delay (matching arc delay logic from CheckProgressRing)
-      const nonTealArcsBefore = arcSegments
+      const nonTealArcsBefore = itemsToCheck
         .slice(0, index)
-        .filter((s, i) => {
-          const prevArc = checkArcs.find(ps => ps.index === i);
-          const alreadyCorrect = prevArc && prevArc.isCorrect && s.isCorrect;
-          return !alreadyCorrect;
-        }).length;
+        .filter(i => !i.shouldSkipArc).length;
       
       const adjustedPieceDelay = nonTealArcsBefore * CHECK_SEGMENT_DURATION * 1000;
       
       // Schedule state changes for this piece after its arc completes
       setTimeout(() => {
-        // Play sound for correct/incorrect (only if there's a piece AND not already locked)
-        if (piece && !correctPositions.has(index)) {
-          playSound(isCorrect ? 'check-correct' : 'check-incorrect', isCorrect ? 1 : .5);
-        }
-        
         // Set temporary feedback
         setFeedback(prev => ({
           ...prev,

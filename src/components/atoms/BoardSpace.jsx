@@ -74,7 +74,14 @@ const BoardSpace = ({
           <motion.div
             key={currentBgImage}
             className="absolute inset-0 rounded-full bg-cover bg-center"
-            style={{ backgroundImage: `url(${currentBgImage})` }}
+            style={{ 
+              backgroundImage: `url(${currentBgImage})`,
+              boxShadow: isCorrectLocked 
+                ? '0 0 10px 0 #14B8A6' 
+                : feedback === 'wrong' 
+                  ? '0 0 12px 0 #9F1239' 
+                  : 'none'
+            }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

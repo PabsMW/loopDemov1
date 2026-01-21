@@ -603,10 +603,10 @@ const GameContainer = () => {
       setIsChecking(false);
 
       if (allCorrect) {
-        playSound('game-success', 0.7);
+        playSound('game-success', 0.4);
         setGameStatus('won');
       } else {
-        playSound('game-try-again', 0.8);
+        playSound('game-try-again', 0.5);
         const newTries = triesRemaining - 1;
         setTriesRemaining(newTries);
         if (newTries === 0) {

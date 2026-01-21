@@ -490,6 +490,13 @@ const GameContainer = () => {
       // Place board piece in tray
       newTray[targetTrayIndex] = id;
       
+      // Clear wrong state from the board position when piece is moved to tray
+      setWrongPositions(prev => {
+        const updated = new Set(prev);
+        updated.delete(fromIndex);
+        return updated;
+      });
+      
       setBoardSpaces(newBoard);
       setTraySpaces(newTray);
       playSound('item-place');

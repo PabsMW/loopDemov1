@@ -12,6 +12,7 @@ const BoardSpace = ({
   isWrongPersistent = false,
   hasSelectedPiece = false,
   interactionMode = 'option1',
+  animationOption = 'option1',
   className = ''
 }) => {
   const dropZoneRef = useRef(null);
@@ -31,8 +32,8 @@ const BoardSpace = ({
     if (isCorrectLocked) {
       return '/images/board-space-correct.svg';
     }
-    // Wrong state (only temporary during check animation)
-    if (feedback === 'wrong') {
+    // Wrong state - temporary during check OR persistent for animation option2
+    if (feedback === 'wrong' || (isWrongPersistent && animationOption === 'option2')) {
       return '/images/board-space-wrong.svg';
     }
     // Drop zone state during drag (highlight background)
@@ -78,7 +79,7 @@ const BoardSpace = ({
               backgroundImage: `url(${currentBgImage})`,
               boxShadow: isCorrectLocked 
                 ? '0 0 10px 0 #14B8A6' 
-                : feedback === 'wrong' 
+                : (feedback === 'wrong' || (isWrongPersistent && animationOption === 'option2'))
                   ? '0 0 12px 0 #9F1239' 
                   : 'none'
             }}

@@ -102,7 +102,9 @@ const GameContainer = () => {
   const [previousCheckArcs, setPreviousCheckArcs] = useState([]); // Track arcs from previous check to skip re-animation
   const [showTesting, setShowTesting] = useState(false); // Toggle testing buttons visibility
   const [interactionMode, setInteractionMode] = useState('option1'); // 'option1' = Tap & Drag, 'option2' = Drag Only, 'option3' = While Drag
+  const [animationOption, setAnimationOption] = useState('option1'); // 'option1' = fade to neutral, 'option2' = keep wrong red
   const [modeTooltip, setModeTooltip] = useState(null); // Tooltip for mode changes
+  const [animTooltip, setAnimTooltip] = useState(null); // Tooltip for animation option changes
   
   // Refs for toggle button widths
   const option1Ref = useRef(null);
@@ -110,6 +112,7 @@ const GameContainer = () => {
   const option3Ref = useRef(null);
   const option4Ref = useRef(null);
   const modeTooltipTimerRef = useRef(null);
+  const animTooltipTimerRef = useRef(null);
   
   // Tooltip descriptions for each interaction mode
   const modeDescriptions = {
@@ -117,6 +120,12 @@ const GameContainer = () => {
     option2: 'Drag only. Hold to zoom.',
     option3: 'Drag to move. Pause to zoom.',
     option4: 'Drag only. Click to zoom.'
+  };
+  
+  // Tooltip descriptions for animation options
+  const animDescriptions = {
+    option1: 'Fade away Wrong/Red after Check',
+    option2: 'Keep Wrong/Red after Check'
   };
   const [toggleDimensions, setToggleDimensions] = useState({ option1Width: 0, option2Width: 0, option3Width: 0, option4Width: 0 });
   
@@ -139,6 +148,12 @@ const GameContainer = () => {
       setInteractionMode('option3');
     } else if (mode === 'option4') {
       setInteractionMode('option4');
+    }
+    
+    // Check URL parameter for animation option
+    const anim = params.get('anim');
+    if (anim === 'option2') {
+      setAnimationOption('option2');
     }
     
     initializeGame();
@@ -197,6 +212,28 @@ const GameContainer = () => {
       }
     };
   }, [interactionMode]);
+
+  // Show tooltip when animation option changes
+  useEffect(() => {
+    // Clear existing timer
+    if (animTooltipTimerRef.current) {
+      clearTimeout(animTooltipTimerRef.current);
+    }
+    
+    // Show tooltip
+    setAnimTooltip(animDescriptions[animationOption]);
+    
+    // Hide after 3 seconds
+    animTooltipTimerRef.current = setTimeout(() => {
+      setAnimTooltip(null);
+    }, 3000);
+    
+    return () => {
+      if (animTooltipTimerRef.current) {
+        clearTimeout(animTooltipTimerRef.current);
+      }
+    };
+  }, [animationOption]);
 
   const initializeGame = () => {
     // Filter out starter piece from tray
@@ -512,33 +549,16 @@ const GameContainer = () => {
         piece,
         index,
         isCorrect,
-        shouldSkipArc,
-        needsSound: piece && !correctPositions.has(index)
+        shouldSkipArc
       };
     });
 
-    // Sequential sound playback for even spacing
-    const itemsNeedingSound = itemsToCheck.filter(item => item.needsSound && !item.shouldSkipArc);
-    let soundIndex = 0;
-    
-    const playNextSound = () => {
-      if (soundIndex >= itemsNeedingSound.length) return;
-      
-      const item = itemsNeedingSound[soundIndex];
-      playSound(item.isCorrect ? 'check-correct' : 'check-incorrect', item.isCorrect ? 1 : 0.5);
-      
-      soundIndex++;
-      if (soundIndex < itemsNeedingSound.length) {
-        setTimeout(playNextSound, CHECK_SEGMENT_DURATION * 1000);
-      }
-    };
-    
-    // Start sound sequence
-    playNextSound();
-
-    // Schedule visual feedback for each piece (keeps sync with arc animation)
+    // Schedule visual feedback and sound for each piece (synced together)
     itemsToCheck.forEach((item) => {
       const { piece, index, isCorrect, shouldSkipArc } = item;
+      
+      // Skip already-correct arcs entirely
+      if (shouldSkipArc) return;
       
       // Calculate adjusted delay (matching arc delay logic from CheckProgressRing)
       const nonTealArcsBefore = itemsToCheck
@@ -547,8 +567,13 @@ const GameContainer = () => {
       
       const adjustedPieceDelay = nonTealArcsBefore * CHECK_SEGMENT_DURATION * 1000;
       
-      // Schedule state changes for this piece after its arc completes
+      // Schedule state changes and sound for this piece after its arc completes
       setTimeout(() => {
+        // Play sound when visual changes (synced with border color change)
+        if (!correctPositions.has(index)) {
+          playSound('check-item');
+        }
+        
         // Set temporary feedback
         setFeedback(prev => ({
           ...prev,
@@ -558,8 +583,8 @@ const GameContainer = () => {
         // Set persistent state
         if (isCorrect) {
           setCorrectPositions(prev => new Set([...prev, index]));
-        } else if (piece) {
-          // Only add to wrongPositions if space has a piece (not empty)
+        } else {
+          // Add to wrongPositions (includes empty spaces for anim option2)
           setWrongPositions(prev => new Set([...prev, index]));
         }
       }, adjustedPieceDelay);
@@ -824,6 +849,27 @@ const GameContainer = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </div>
+
+          {/* Animation Option Dropdown */}
+          <div className="relative">
+            <select
+              value={animationOption}
+              onChange={(e) => setAnimationOption(e.target.value)}
+              className="appearance-none h-[40px] pl-3 pr-8 bg-gray-800 text-gray-300 text-sm font-comfortaa rounded-full border border-slate-600 cursor-pointer focus:outline-none focus:border-teal-500 transition-colors"
+            >
+              <option value="option1">Anim 1</option>
+              <option value="option2">Anim 2</option>
+            </select>
+            {/* Custom chevron */}
+            <svg 
+              className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none w-4 h-4 text-gray-400"
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
           
           {/* Right: Draggable Interaction Mode Toggle */}
           <div className="flex relative bg-gray-800 rounded-full p-1 ">
@@ -976,6 +1022,21 @@ const GameContainer = () => {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Animation option tooltip */}
+        <AnimatePresence>
+          {animTooltip && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="fixed top-11 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg shadow-lg whitespace-nowrap"
+            >
+              {animTooltip}
+            </motion.div>
+          )}
+        </AnimatePresence>
       
       {/* Main content wrapper */}
       <div className="GameContainer relative flex flex-col items-center justify-center text-center space-y-8 max-w-sm w-full">
@@ -1044,6 +1105,7 @@ const GameContainer = () => {
             hoveredSwapTarget={hoveredSwapTarget}
             hasSelectedPiece={selectedPiece !== null}
             interactionMode={interactionMode}
+            animationOption={animationOption}
           />
         </div>
         

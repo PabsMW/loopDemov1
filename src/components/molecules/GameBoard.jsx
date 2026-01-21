@@ -15,6 +15,7 @@ const GameBoard = ({
   hoveredSwapTarget = null,
   hasSelectedPiece = false,
   interactionMode = 'option1',
+  animationOption = 'option1',
   className = ''
 }) => {
   // Calculate position for each BoardSpace around the circle
@@ -75,6 +76,7 @@ const GameBoard = ({
               isWrongPersistent={wrongPositions.includes(index)}
               hasSelectedPiece={hasSelectedPiece}
               interactionMode={interactionMode}
+              animationOption={animationOption}
             />
           </div>
         );

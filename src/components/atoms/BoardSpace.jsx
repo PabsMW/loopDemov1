@@ -4,12 +4,13 @@ import { useRef, useState, useEffect } from 'react';
 const BoardSpace = ({ 
   index, 
   piece = null,
-  feedback = null, // 'correct' | 'wrong' | null
+  feedback = null, // 'correct' | 'wrong' | 'partial' | null
   onClick,
   isLocked = false,
   isDragging = false,
   isCorrectLocked = false,
   isWrongPersistent = false,
+  isPartialPersistent = false,
   hasSelectedPiece = false,
   interactionMode = 'option1',
   animationOption = 'option1',
@@ -31,6 +32,10 @@ const BoardSpace = ({
     // Correct locked (starter or validated correct)
     if (isCorrectLocked) {
       return '/images/board-space-correct.svg';
+    }
+    // Partial state - correctly connected but wrong position (persists like correct)
+    if (feedback === 'partial' || isPartialPersistent) {
+      return '/images/board-space-partial.svg';
     }
     // Wrong state - temporary during check OR persistent for animation option2
     if (feedback === 'wrong' || (isWrongPersistent && animationOption === 'option2')) {
@@ -79,9 +84,11 @@ const BoardSpace = ({
               backgroundImage: `url(${currentBgImage})`,
               boxShadow: isCorrectLocked 
                 ? '0 0 10px 0 #14B8A6' 
-                : (feedback === 'wrong' || (isWrongPersistent && animationOption === 'option2'))
-                  ? '0 0 12px 0 #9F1239' 
-                  : 'none'
+                : (feedback === 'partial' || isPartialPersistent)
+                  ? '0 0 12px 0 #F59E0B'
+                  : (feedback === 'wrong' || (isWrongPersistent && animationOption === 'option2'))
+                    ? '0 0 12px 0 #9F1239' 
+                    : 'none'
             }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

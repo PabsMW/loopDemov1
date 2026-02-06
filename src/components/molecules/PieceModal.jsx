@@ -20,6 +20,7 @@ const PieceModal = ({
   feedback = null,
   isCorrectLocked = false,
   isWrongPersistent = false,
+  isPartialPersistent = false,
   interactionMode = 'option1',
   onClose, 
   className = '' 
@@ -47,6 +48,7 @@ const PieceModal = ({
       // Option 2/3: soft teal, Option 1/4: teal
       return !isOption1Style ? '#DBFCF5' : '#CCFBF1';
     }
+    if (feedback === 'partial' || isPartialPersistent) return '#FEF3C7'; // amber-100
     if (feedback === 'wrong') return '#FEE2E2'; // red-100 (only during check)
     return '#F6F4EE'; // cotton-300 default
   };
@@ -54,6 +56,7 @@ const PieceModal = ({
   // Border color based on state (only used in Option 2/3)
   const getBorderColor = () => {
     if (isCorrectLocked) return 'border-teal-500';
+    if (feedback === 'partial' || isPartialPersistent) return 'border-amber-500';
     if (feedback === 'wrong') return 'border-red-500';
     return 'border-cyan-900';
   };

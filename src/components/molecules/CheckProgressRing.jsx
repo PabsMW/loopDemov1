@@ -23,6 +23,13 @@ const CheckProgressRing = ({
   if (!isChecking && !hasEverChecked) return null;
   if (segments.length === 0) return null;
   
+  // #region agent log
+  const partialArcs = segments.filter(s => s.isPartial);
+  if (partialArcs.length > 0) {
+    fetch('http://127.0.0.1:7242/ingest/f251af1e-faaf-4486-88d3-157c9976b4ed',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CheckProgressRing.jsx:render',message:'Rendering with partial arcs',data:{isChecking,partialArcs:partialArcs.map(a=>({index:a.index,isPartial:a.isPartial})),allSegments:segments.map(s=>({index:s.index,isCorrect:s.isCorrect,isPartial:s.isPartial}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+  }
+  // #endregion
+  
   // Helper function to create arc path for each segment
   const createArcPath = (startIndex) => {
     const startAngle = (startIndex * 30 - 90) * (Math.PI / 180); // -90 to start at 12 o'clock
@@ -46,45 +53,61 @@ const CheckProgressRing = ({
       style={{ top: 0, left: 0 }}
     >
       {segments.map((segment, index) => {
-        // Check if this arc was already correct in previous check
+        // Check if this arc was already persistent (correct or partial) in previous check
         const previousArc = previousSegments.find(s => s.index === index);
-        const wasAlreadyCorrect = previousArc && previousArc.isCorrect && segment.isCorrect;
+        const wasAlreadyPersistent = previousArc && (
+          (previousArc.isCorrect && segment.isCorrect) ||
+          (previousArc.isPartial && segment.isPartial)
+        );
         
-        // Count how many non-teal arcs come before this one (for adjusted delay)
-        const nonTealArcsBefore = segments
+        // Count how many non-persistent arcs come before this one (for adjusted delay)
+        const nonPersistentArcsBefore = segments
           .slice(0, index)
           .filter((s, i) => {
             const prevArc = previousSegments.find(ps => ps.index === i);
-            const alreadyCorrect = prevArc && prevArc.isCorrect && s.isCorrect;
-            return !alreadyCorrect;  // Count only arcs that need animation
+            const alreadyPersistent = prevArc && (
+              (prevArc.isCorrect && s.isCorrect) ||
+              (prevArc.isPartial && s.isPartial)
+            );
+            return !alreadyPersistent;  // Count only arcs that need animation
           }).length;
         
-        const adjustedDelay = wasAlreadyCorrect ? 0 : (nonTealArcsBefore * segmentDuration);
+        const adjustedDelay = wasAlreadyPersistent ? 0 : (nonPersistentArcsBefore * segmentDuration);
+        
+        // Determine stroke color: teal for correct, amber for partial, red for wrong
+        const getStrokeColor = () => {
+          if (segment.isCorrect) return "#5EEAD4"; // teal
+          if (segment.isPartial) return "#FCD34D"; // amber-300
+          return "#EF4444"; // red
+        };
+        
+        // Should this arc persist after check? (correct and partial persist, wrong fades)
+        const shouldPersist = segment.isCorrect || segment.isPartial;
         
         return (
           <motion.path
             key={index}
             d={createArcPath(index)}
             fill="none"
-            stroke={segment.isCorrect ? "#5EEAD4" : "#EF4444"}
+            stroke={getStrokeColor()}
             strokeWidth={strokeWidth}
             strokeLinecap="round"
             strokeDasharray={arcLength}
             initial={{ 
-              strokeDashoffset: wasAlreadyCorrect ? 0 : arcLength,
-              opacity: wasAlreadyCorrect ? 1 : 0 
+              strokeDashoffset: wasAlreadyPersistent ? 0 : arcLength,
+              opacity: wasAlreadyPersistent ? 1 : 0 
             }}
             animate={isChecking ? {
               strokeDashoffset: 0,
               opacity: 1
             } : {
-              strokeDashoffset: segment.isCorrect ? 0 : arcLength,
-              opacity: segment.isCorrect ? 1 : 0
+              strokeDashoffset: shouldPersist ? 0 : arcLength,
+              opacity: shouldPersist ? 1 : 0
             }}
             transition={isChecking ? { 
               strokeDashoffset: {
                 delay: adjustedDelay,
-                duration: wasAlreadyCorrect ? 0 : segmentDuration,
+                duration: wasAlreadyPersistent ? 0 : segmentDuration,
                 ease: "linear"
               },
               opacity: { duration: 0.2 }

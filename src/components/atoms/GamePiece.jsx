@@ -27,9 +27,10 @@ const GamePiece = ({
   onPointerDown,
   fromType,
   fromIndex,
-  feedback = null, // 'correct' | 'wrong' | null
+  feedback = null, // 'correct' | 'wrong' | 'partial' | null
   isCorrectLocked = false, // For starter piece and permanently correct pieces
   isWrongPersistent = false, // Piece is wrong and persists until moved
+  isPartialPersistent = false, // Piece is correctly connected but wrong position
   interactionMode = 'option1', // 'option1' = Tap & Drag, 'option2' = Drag Only
   swapOffset = { x: 0, y: 0 }, // Offset for swap preview animation
   swapAnimation = null, // Fly-fade animation during swap
@@ -51,7 +52,7 @@ const GamePiece = ({
   const dragZoomTimerRef = useRef(null);
   const lastDragPosition = useRef({ x: 0, y: 0 });
   
-  // Background color based on feedback or correct/wrong locked state
+  // Background color based on feedback or correct/wrong/partial locked state
   const getBgColor = () => {
     // Correct locked (starter or validated correct)
     if (isCorrectLocked) {
@@ -61,6 +62,10 @@ const GamePiece = ({
     // Temporary feedback during check
     if (feedback === 'correct') {
       return interactionMode === 'option2' ? 'bg-cotton-300' : 'bg-teal-100';
+    }
+    // Partial state (correctly connected but wrong position) - amber/yellow background
+    if (feedback === 'partial' || isPartialPersistent) {
+      return 'bg-amber-100';
     }
     // Wrong state (persistent until moved or temporary during check)
     if (feedback === 'wrong' || isWrongPersistent) {

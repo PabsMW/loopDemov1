@@ -61,7 +61,18 @@ const GameContainer = () => {
     position: starterIndex
   };
 
-  const correctOrder = gameData.map(item => item.id);
+  const correctOrderForward = gameData.map(item => item.id);
+  // Reverse order: starter stays at 0, but sequence goes backward
+  const correctOrderReverse = [
+    correctOrderForward[0], // starter stays at position 0
+    ...correctOrderForward.slice(1).reverse() // reverse the rest
+  ];
+  
+  // Function to get the correct order based on play direction
+  // Returns forward order by default, reverse if playDirection is 'reverse'
+  const getCorrectOrder = (direction) => {
+    return direction === 'reverse' ? correctOrderReverse : correctOrderForward;
+  };
   
   const allPieces = gameData.reduce((acc, item) => {
     acc[item.id] = item.image;
@@ -90,6 +101,8 @@ const GameContainer = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [correctPositions, setCorrectPositions] = useState(new Set([starterPiece.position])); // Positions that are correct and locked
   const [wrongPositions, setWrongPositions] = useState(new Set()); // Positions that are wrong (persist until moved)
+  const [partialPositions, setPartialPositions] = useState(new Set()); // Positions that are correctly connected but in wrong place
+  const [playDirection, setPlayDirection] = useState(null); // null = undetermined, 'forward' = A→B, 'reverse' = B→A
   const [hasChanges, setHasChanges] = useState(false); // Track if moves have been made since last check
   const [lastCheckedBoard, setLastCheckedBoard] = useState(null); // Store board state after each check
   const [activeBoardIndex, setActiveBoardIndex] = useState(null); // Track which board position is being dragged
@@ -254,6 +267,8 @@ const GameContainer = () => {
     setIsChecking(false);
     setCorrectPositions(new Set([starterPiece.position])); // Reset to just starter
     setWrongPositions(new Set()); // Clear wrong positions on reset
+    setPartialPositions(new Set()); // Clear partial positions on reset
+    setPlayDirection(null); // Reset play direction (will be determined on first check)
     setHasChanges(false); // No changes at start
     setLastCheckedBoard([...initialBoard]); // Set initial board as baseline for comparison
   };
@@ -336,6 +351,42 @@ const GameContainer = () => {
         updated.delete(fromLocation.index); // Clear source position
       }
       updated.delete(boardIndex); // Clear target position
+      return updated;
+    });
+
+    // Clear partial state from involved positions when piece is moved
+    setPartialPositions(prev => {
+      const updated = new Set(prev);
+      if (fromLocation.type === 'board') {
+        updated.delete(fromLocation.index); // Clear source position
+      }
+      updated.delete(boardIndex); // Clear target position
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/f251af1e-faaf-4486-88d3-157c9976b4ed',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'GameContainer.jsx:placePiece',message:'Clearing partialPositions',data:{fromIndex:fromLocation.index,toIndex:boardIndex,prevPartial:Array.from(prev),newPartial:Array.from(updated)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+      return updated;
+    });
+
+    // Clear partial arcs connected to moved positions (so amber arcs fade)
+    setCheckArcs(prev => {
+      const updated = [...prev];
+      const indicesToClear = new Set();
+      if (fromLocation.type === 'board') {
+        // Arc ending at source position (arc index = position - 1, wrapping)
+        indicesToClear.add((fromLocation.index + 11) % 12);
+        // Arc starting at source position (arc index = position)
+        indicesToClear.add(fromLocation.index);
+      }
+      // Arc ending at target position
+      indicesToClear.add((boardIndex + 11) % 12);
+      // Arc starting at target position
+      indicesToClear.add(boardIndex);
+      
+      indicesToClear.forEach(idx => {
+        if (updated[idx]) {
+          updated[idx] = { ...updated[idx], isPartial: false };
+        }
+      });
       return updated;
     });
 
@@ -497,6 +548,33 @@ const GameContainer = () => {
         return updated;
       });
       
+      // Clear partial state from the board position when piece is moved to tray
+      setPartialPositions(prev => {
+        const updated = new Set(prev);
+        updated.delete(fromIndex);
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/f251af1e-faaf-4486-88d3-157c9976b4ed',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'GameContainer.jsx:handleDragEnd-boardToTray',message:'Clearing partialPositions on board-to-tray',data:{fromIndex,prevPartial:Array.from(prev),newPartial:Array.from(updated)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
+        return updated;
+      });
+      
+      // Clear partial arcs connected to the moved position (so amber arcs fade)
+      setCheckArcs(prev => {
+        const updated = [...prev];
+        // Arc ending at this position (arc index = position - 1, wrapping)
+        const leftArcIdx = (fromIndex + 11) % 12;
+        // Arc starting at this position (arc index = position)
+        const rightArcIdx = fromIndex;
+        
+        if (updated[leftArcIdx]) {
+          updated[leftArcIdx] = { ...updated[leftArcIdx], isPartial: false };
+        }
+        if (updated[rightArcIdx]) {
+          updated[rightArcIdx] = { ...updated[rightArcIdx], isPartial: false };
+        }
+        return updated;
+      });
+      
       setBoardSpaces(newBoard);
       setTraySpaces(newTray);
       playSound('item-place');
@@ -517,62 +595,137 @@ const GameContainer = () => {
     setIsChecking(true);
     setHasEverChecked(true); // Mark that check has been run
     setWrongPositions(new Set()); // Clear persistent wrong state at start of check
+    setPartialPositions(new Set()); // Clear persistent partial state at start of check
     let allCorrect = true;
+
+    // Determine play direction if not yet set
+    // Direction is determined by the first piece adjacent to the starter (position 1)
+    let currentDirection = playDirection;
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/f251af1e-faaf-4486-88d3-157c9976b4ed',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'GameContainer.jsx:handleCheck:direction-start',message:'Direction check starting',data:{playDirection,pieceAtPos1:boardSpaces[1],forwardExpected:correctOrderForward[1],reverseExpected:correctOrderReverse[1]},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+    if (currentDirection === null && boardSpaces[1]) {
+      const pieceAtPos1 = boardSpaces[1];
+      // Check if it matches forward order (A→B)
+      if (pieceAtPos1 === correctOrderForward[1]) {
+        currentDirection = 'forward';
+        setPlayDirection('forward');
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/f251af1e-faaf-4486-88d3-157c9976b4ed',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'GameContainer.jsx:handleCheck:direction-set',message:'Direction set to FORWARD',data:{pieceAtPos1,matchedForward:correctOrderForward[1]},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
+      }
+      // Check if it matches reverse order (B→A) - the last non-starter item in forward is first in reverse
+      else if (pieceAtPos1 === correctOrderReverse[1]) {
+        currentDirection = 'reverse';
+        setPlayDirection('reverse');
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/f251af1e-faaf-4486-88d3-157c9976b4ed',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'GameContainer.jsx:handleCheck:direction-set',message:'Direction set to REVERSE',data:{pieceAtPos1,matchedReverse:correctOrderReverse[1]},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
+      }
+      // If neither matches exactly, leave direction as null and use forward as default
+    }
+    
+    // Get the correct order based on determined direction
+    const correctOrder = getCorrectOrder(currentDirection);
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/f251af1e-faaf-4486-88d3-157c9976b4ed',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'GameContainer.jsx:handleCheck:direction-result',message:'Using correct order',data:{currentDirection,correctOrderUsed:correctOrder},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+
+    // Helper to check if two pieces are correctly connected (in either direction)
+    const areCorrectlyConnected = (pieceA, pieceB) => {
+      if (!pieceA || !pieceB) return false;
+      const indexA = correctOrder.indexOf(pieceA);
+      const indexB = correctOrder.indexOf(pieceB);
+      // They're connected if A is immediately before B OR B is immediately before A (wrapping for loop)
+      // This allows both directions: corn→ear AND ear→corn are both valid connections
+      return (indexA + 1) % 12 === indexB || (indexB + 1) % 12 === indexA;
+    };
 
     // Calculate arc states (connections between adjacent pieces)
     const arcSegments = boardSpaces.map((piece, index) => {
       const nextIndex = (index + 1) % 12; // Wrap around for last arc
+      const nextPiece = boardSpaces[nextIndex];
       const currentCorrect = piece === correctOrder[index];
-      const nextCorrect = boardSpaces[nextIndex] === correctOrder[nextIndex];
+      const nextCorrect = nextPiece === correctOrder[nextIndex];
+      const isCorrect = currentCorrect && nextCorrect; // Both must be correct for teal arc
+      
+      // Partial: pieces are correctly connected but not in correct absolute positions
+      const correctlyConnected = areCorrectlyConnected(piece, nextPiece);
+      const isPartial = !isCorrect && correctlyConnected;
       
       return {
-        isCorrect: currentCorrect && nextCorrect, // Both must be correct for teal arc
+        isCorrect,
+        isPartial,
         index
       };
     });
     
     setPreviousCheckArcs(checkArcs); // Store previous for comparison
     setCheckArcs(arcSegments); // Freeze arc results for this check
+    // #region agent log
+    const partialArcsInCheck = arcSegments.filter(s => s.isPartial);
+    fetch('http://127.0.0.1:7242/ingest/f251af1e-faaf-4486-88d3-157c9976b4ed',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'GameContainer.jsx:handleCheck',message:'Setting checkArcs with partial arcs',data:{partialArcs:partialArcsInCheck.map(a=>({index:a.index}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
 
-    // Calculate total animation duration (based on non-teal arcs)
-    const nonTealArcsCount = arcSegments.filter((s, i) => {
+    // Calculate total animation duration (based on arcs that need animation - not already correct/partial)
+    const nonPersistentArcsCount = arcSegments.filter((s, i) => {
       const prevArc = checkArcs.find(ps => ps.index === i);
-      const alreadyCorrect = prevArc && prevArc.isCorrect && s.isCorrect;
-      return !alreadyCorrect;
+      // Skip if was already correct/partial and still is
+      const alreadyPersistent = prevArc && (
+        (prevArc.isCorrect && s.isCorrect) || 
+        (prevArc.isPartial && s.isPartial)
+      );
+      return !alreadyPersistent;
     }).length;
-    const actualAnimationDuration = nonTealArcsCount * CHECK_SEGMENT_DURATION;
+    const actualAnimationDuration = nonPersistentArcsCount * CHECK_SEGMENT_DURATION;
 
     // Build array of items to check with their properties
     const itemsToCheck = boardSpaces.map((piece, index) => {
       const isCorrect = piece === correctOrder[index];
+      // #region agent log
+      if (index === 1) {
+        fetch('http://127.0.0.1:7242/ingest/f251af1e-faaf-4486-88d3-157c9976b4ed',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'GameContainer.jsx:handleCheck:pos1-check',message:'Checking position 1',data:{piece,expected:correctOrder[1],isCorrect,currentDirection},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+      }
+      // #endregion
       if (!isCorrect) allCorrect = false;
       
-      // Check if this arc should be skipped (already correct from previous check)
+      // Check if this arc should be skipped (already correct or partial from previous check)
       const prevArc = checkArcs.find(ps => ps.index === index);
       const currentArc = arcSegments[index];
-      const shouldSkipArc = prevArc && prevArc.isCorrect && currentArc.isCorrect;
+      const shouldSkipArc = prevArc && (
+        (prevArc.isCorrect && currentArc.isCorrect) ||
+        (prevArc.isPartial && currentArc.isPartial)
+      );
+      
+      // A piece is partial if it has at least one correctly-connected neighbor
+      // Check the arc to the left (index-1 -> index) and the arc to the right (index -> index+1)
+      const leftArcIndex = (index + 11) % 12; // Arc that ends at this piece
+      const rightArcIndex = index; // Arc that starts at this piece
+      const hasPartialConnection = arcSegments[leftArcIndex].isPartial || arcSegments[rightArcIndex].isPartial;
+      const isPartial = !isCorrect && hasPartialConnection;
       
       return {
         piece,
         index,
         isCorrect,
+        isPartial,
         shouldSkipArc
       };
     });
 
     // Schedule visual feedback and sound for each piece (synced together)
     itemsToCheck.forEach((item) => {
-      const { piece, index, isCorrect, shouldSkipArc } = item;
+      const { piece, index, isCorrect, isPartial, shouldSkipArc } = item;
       
-      // Skip already-correct arcs entirely
+      // Skip already-correct/partial arcs entirely
       if (shouldSkipArc) return;
       
       // Calculate adjusted delay (matching arc delay logic from CheckProgressRing)
-      const nonTealArcsBefore = itemsToCheck
+      const nonPersistentArcsBefore = itemsToCheck
         .slice(0, index)
         .filter(i => !i.shouldSkipArc).length;
       
-      const adjustedPieceDelay = nonTealArcsBefore * CHECK_SEGMENT_DURATION * 1000;
+      const adjustedPieceDelay = nonPersistentArcsBefore * CHECK_SEGMENT_DURATION * 1000;
       
       // Schedule state changes and sound for this piece after its arc completes
       setTimeout(() => {
@@ -581,15 +734,19 @@ const GameContainer = () => {
           playSound('check-item');
         }
         
-        // Set temporary feedback
+        // Set temporary feedback: correct > partial > wrong
+        const feedbackType = isCorrect ? 'correct' : (isPartial ? 'partial' : 'wrong');
         setFeedback(prev => ({
           ...prev,
-          [index]: isCorrect ? 'correct' : 'wrong'
+          [index]: feedbackType
         }));
         
         // Set persistent state
         if (isCorrect) {
           setCorrectPositions(prev => new Set([...prev, index]));
+        } else if (isPartial) {
+          // Add to partialPositions
+          setPartialPositions(prev => new Set([...prev, index]));
         } else {
           // Add to wrongPositions (includes empty spaces for anim option2)
           setWrongPositions(prev => new Set([...prev, index]));
@@ -620,6 +777,7 @@ const GameContainer = () => {
   const createBoardPiece = (piece, index, swapOffset) => {
     const isCorrectLocked = correctPositions.has(index);
     const isWrongPersistent = wrongPositions.has(index);
+    const isPartialPersistent = partialPositions.has(index);
     
     
     // Check if this piece is flying/fading during swap
@@ -650,6 +808,7 @@ const GameContainer = () => {
         feedback={feedback[index]}
         isCorrectLocked={isCorrectLocked}
         isWrongPersistent={isWrongPersistent}
+        isPartialPersistent={isPartialPersistent}
         interactionMode={interactionMode}
         onCloseZoom={() => {
           setSelectedPiece(null);
@@ -1078,6 +1237,7 @@ const GameContainer = () => {
               feedback={selectedFrom.type === 'board' ? feedback[selectedFrom.index] : null}
               isCorrectLocked={selectedFrom.type === 'board' && correctPositions.has(selectedFrom.index)}
               isWrongPersistent={selectedFrom.type === 'board' && wrongPositions.has(selectedFrom.index)}
+              isPartialPersistent={selectedFrom.type === 'board' && partialPositions.has(selectedFrom.index)}
               interactionMode={interactionMode}
               onClose={() => {
                 setSelectedPiece(null);
@@ -1108,6 +1268,7 @@ const GameContainer = () => {
             isDragging={isDragging}
             correctPositions={Array.from(correctPositions)}
             wrongPositions={Array.from(wrongPositions)}
+            partialPositions={Array.from(partialPositions)}
             activeBoardIndex={activeBoardIndex}
             hoveredSwapTarget={hoveredSwapTarget}
             hasSelectedPiece={selectedPiece !== null}
